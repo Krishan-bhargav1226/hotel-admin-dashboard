@@ -10,14 +10,26 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.vite
 *.local
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# .NET
+**/bin/
+**/obj/
+**/.vs/
+*.user
+*.suo
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
-*.suo
 *.ntvs*
 *.njsproj
 *.sln
