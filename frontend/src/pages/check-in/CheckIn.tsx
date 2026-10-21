@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import dayjs from "dayjs";
 import toast from "react-hot-toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -9,60 +9,116 @@ import { useGetRoomsQuery } from "../../store/services/room/roomSlice";
 import { useGetRoomTypesQuery } from "../../store/services/room-type/roomTypeSlice";
 import { useGetRatePlansQuery } from "../../store/services/rate-plan/ratePlanSlice";
 import { useGetSettingsQuery } from "../../store/services/settings/settingsSlice";
-import { useGetGuestsQuery } from "../../store/services/guest/guestSlice";
 import { AppEndPoints } from "../../utils/rout-endpoints/AppEndPoints";
-import { buildPath, getErrorMessage } from "../../utils/helper/helper";
+import { getErrorMessage } from "../../utils/helper/helper";
 import { fromLocalInput, toLocalInput } from "../../utils/date/dateUtils";
 import CheckInWizardForm from "./components/CheckInWizardForm";
 import type { CheckInFormValues } from "./types";
+
 export type { CheckInFormValues, CustomerType, DurationType, PartyType } from "./types";
 
 export default function CheckIn() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const requestedRoom = params.get("room");
+  const requestedRoom = params.get("room") ?? "";
   const [checkIn, { isLoading }] = useCheckInMutation();
   const { data: rooms = [] } = useGetRoomsQuery();
   const { data: roomTypes = [] } = useGetRoomTypesQuery();
   const { data: plans = [] } = useGetRatePlansQuery();
-  const { data: guests = [] } = useGetGuestsQuery();
   const { data: settings } = useGetSettingsQuery();
-  const [roomCategoryFilter, setRoomCategoryFilter] = useState("ALL");
+
   const availableRooms = useMemo(() => rooms.filter((room) => room.status === "AVAILABLE"), [rooms]);
-  const initialValues = useMemo<CheckInFormValues>(() => ({
-    customerType: "NEW", partyType: "SINGLE", durationType: "FULL_DAY",
-    phone: "", name: "", idType: "AADHAAR", idNumber: "", idImage: "", address: "",
-    companions: [], roomId: requestedRoom ?? availableRooms[0]?.id ?? "", planId: "",
-    checkInAt: toLocalInput(dayjs().toISOString()), advanceAmount: "", advanceMode: "CASH", notes: "",
-  }), [requestedRoom, availableRooms]);
+
+  const initialValues = useMemo<CheckInFormValues>(
+    () => ({
+      customerType: "REPEAT", // Starts on 'Yes, Returning Guest' for fastest workflow
+      partyType: "SOLO",
+      guestCount: 1,
+      roomsBooked: 1,
+      durationType: "FULL_DAY",
+      phone: "",
+      members: [
+        {
+          fullName: "",
+          idType: "AADHAAR",
+          idNumber: "",
+          idDocumentId: "",
+          isPrimary: true,
+        },
+      ],
+      roomIds: [],
+      planId: "",
+      checkInAt: toLocalInput(dayjs().toISOString()),
+      advanceAmount: "",
+      advanceMode: "CASH",
+      notes: "",
+    }),
+    [],
+  );
 
   const handleSubmit = async (values: CheckInFormValues) => {
     try {
+      const primary = values.members[0] || {
+        fullName: "Guest",
+        idType: "AADHAAR",
+        idNumber: "",
+        idDocumentId: "",
+      };
+
+      const companions = values.members.slice(1).map((m) => ({
+        name: m.fullName.trim(),
+        idType: m.idType,
+        idNumber: m.idNumber.trim(),
+        idImage: m.idDocumentId || m.idDocumentUrl || "",
+      }));
+
+      // Synchronize in local RTK store
       const stay = await checkIn({
         guest: {
-          name: values.name, phone: values.phone, idType: values.idType,
-          idNumber: values.idNumber, idImage: values.idImage, address: values.address,
+          name: primary.fullName.trim(),
+          phone: values.phone.trim(),
+          idType: primary.idType,
+          idNumber: primary.idNumber.trim(),
+          idImage: primary.idDocumentId || primary.idDocumentUrl || "",
+          address: "",
         },
-        companions: values.companions.filter((companion) => companion.name.trim()),
-        roomId: values.roomId, planId: values.planId,
+        companions,
+        partyType: values.partyType,
+        guestCount: values.members.length,
+        roomIds: values.roomIds,
+        planId: values.planId,
         checkInAt: fromLocalInput(values.checkInAt),
         advanceAmount: Number(values.advanceAmount) || 0,
-        advanceMode: values.advanceMode, taxPercent: settings?.taxPercent ?? 0, notes: values.notes,
+        advanceMode: values.advanceMode,
+        taxPercent: settings?.taxPercent ?? 0,
+        notes: values.notes,
       }).unwrap();
-      toast.success(`${stay.guestName} checked in successfully — Room ${stay.roomNumber}`);
-      navigate(buildPath(AppEndPoints.STAY_DETAILS, stay.id));
+
+      toast.success(`${stay.guestName} checked into room ${stay.roomNumber}`);
+      // Redirect to updated room board
+      navigate(AppEndPoints.DASHBOARD);
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
   };
 
-  return <MainContainer>
-    <PageTitle title="New check-in" subtitle="Add guest details, choose an available room, and select a stay plan." />
-    <CheckInWizardForm
-      initialValues={initialValues} rooms={rooms} availableRooms={availableRooms}
-      roomTypes={roomTypes} plans={plans} guests={guests} isLoading={isLoading}
-      roomCategoryFilter={roomCategoryFilter} setRoomCategoryFilter={setRoomCategoryFilter}
-      onSubmit={handleSubmit}
-    />
-  </MainContainer>;
+  return (
+    <MainContainer>
+      <PageTitle
+        title="Check in"
+        subtitle="Fast counter check-in: repeat guest auto-lookup, government ID verification & room assignment."
+      />
+      <CheckInWizardForm
+        initialValues={initialValues}
+        rooms={rooms}
+        availableRooms={availableRooms}
+        roomTypes={roomTypes}
+        plans={plans}
+        isLoading={isLoading}
+        requestedRoom={requestedRoom}
+        taxPercent={settings?.taxPercent ?? 0}
+        onSubmit={handleSubmit}
+      />
+    </MainContainer>
+  );
 }

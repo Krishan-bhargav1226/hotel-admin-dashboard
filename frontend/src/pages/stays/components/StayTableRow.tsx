@@ -1,5 +1,5 @@
 import dayjs from "dayjs";
-import { MdDeleteOutline } from "react-icons/md";
+import { Trash2 } from "lucide-react";
 import RoomPhoto from "../../../components/ui/room/RoomPhoto";
 import { TableRow } from "../../../components/tables/TableRow";
 import { formatCurrency } from "../../../utils/helper/helper";
@@ -122,7 +122,7 @@ export default function StayTableRow({ stay, rowIndex, rowNumber, room, bill, on
                           onClick={onDelete}
                           className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
                         >
-                          <MdDeleteOutline size={16} />
+                          <Trash2 size={16} />
                         </button>
                       )}
                     </div>

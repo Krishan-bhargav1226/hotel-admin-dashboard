@@ -1,4 +1,7 @@
 export const AppEndPoints = {
+  // Authentication
+  LOGIN: "/login",
+
   // Dashboard
   DASHBOARD: "/",
 
@@ -34,6 +37,15 @@ export const AppEndPoints = {
   // Reports
   REPORTS: "/reports",
 
+  // Lost & Found
+  LOST_FOUND: "/lost-found",
+
+  // Night Audit & EOD
+  NIGHT_AUDIT: "/night-audit",
+
   // Settings
   SETTINGS: "/settings",
+
+  // Multi-Hotel Chain Portfolio
+  CHAIN_PORTFOLIO: "/chain-portfolio",
 };

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import toast from "react-hot-toast";
-import { MdFileDownload, MdLogin, MdPrint } from "react-icons/md";
+import { Download, LogIn, Printer } from "lucide-react";
 import MainContainer from "../../components/ui/container/MainContainer";
 import PageTitle from "../../components/ui/container/PageTitle";
 import { Button } from "../../components/ui/button";
@@ -21,6 +21,7 @@ import { useClientPagination } from "../../hooks/useClientPagination";
 import { ShowConfirmModal } from "../../hooks/useShowConfirmModal";
 import { AppEndPoints } from "../../utils/rout-endpoints/AppEndPoints";
 import { calculateBill } from "../../utils/helper/billing";
+import { billForStayRooms, stayRoomCount } from "../../utils/helper/stayRooms";
 import { buildPath, formatDuration, getErrorMessage } from "../../utils/helper/helper";
 import { formatDateTime } from "../../utils/date/dateUtils";
 import type { Stay } from "../../utils/interfaces/Interface";
@@ -43,8 +44,14 @@ export default function Stays() {
   const [checkoutStay, setCheckoutStay] = useState<Stay | null>(null);
 
   const activeStays = useMemo(() => stays.filter((stay) => stay.status === "ACTIVE"), [stays]);
-  const getStayBill = (stay: Stay) => stay.status === "ACTIVE" ? calculateBill({ plan: stay.plan, checkInAt: stay.checkInAt, checkOutAt: nowIso, expectedCheckOutAt: stay.expectedCheckOutAt, extraCharges: stay.extraCharges, discount: stay.discount, taxPercent: stay.taxPercent }) : stay.bill;
-  const totalInHouseHeadcount = activeStays.reduce((sum, stay) => sum + 1 + stay.companions.filter((companion) => companion.name.trim()).length, 0);
+  const getStayBill = (stay: Stay) =>
+    stay.status === "ACTIVE"
+      ? billForStayRooms(
+          calculateBill({ plan: stay.plan, checkInAt: stay.checkInAt, checkOutAt: nowIso, expectedCheckOutAt: stay.expectedCheckOutAt, extraCharges: stay.extraCharges, discount: stay.discount, taxPercent: stay.taxPercent }),
+          stayRoomCount(stay),
+        )
+      : stay.bill;
+  const totalInHouseHeadcount = activeStays.reduce((sum, stay) => sum + ((stay.guestCount ?? 0) > 0 ? (stay.guestCount ?? 1) : 1 + (stay.companions || []).filter((companion) => companion.name.trim()).length), 0);
   const totalLiveFolioSum = activeStays.reduce((sum, stay) => sum + (getStayBill(stay)?.total || 0), 0);
   const departingStays = useMemo(() => activeStays.filter((stay) => stay.expectedCheckOutAt && (dayjs(stay.expectedCheckOutAt).isSame(dayjs(now), "day") || dayjs(now).isAfter(dayjs(stay.expectedCheckOutAt)))), [activeStays, now]);
 
@@ -80,9 +87,9 @@ export default function Stays() {
 
   return <MainContainer>
     <PageTitle title="In-house stays" subtitle="Current guests, running folios, and departures that need attention." actions={<>
-      <Button variant="outline" size="sm" onClick={() => printDocument(exportRows, EXCEL_COLUMNS, "In-House Stays")}><MdPrint size={16} aria-hidden="true" /> Print PDF</Button>
-      <Button variant="outline" size="sm" onClick={() => exportToExcel(exportRows, EXCEL_COLUMNS, "InHouse_Stays.xlsx")}><MdFileDownload size={16} aria-hidden="true" /> Export Excel</Button>
-      <Button variant="primary" size="sm" onClick={() => navigate(AppEndPoints.CHECK_IN)}><MdLogin size={16} aria-hidden="true" /> New check-in</Button>
+      <Button variant="outline" size="sm" onClick={() => printDocument(exportRows, EXCEL_COLUMNS, "In-House Stays")}><Printer size={16} aria-hidden="true" /> Print PDF</Button>
+      <Button variant="outline" size="sm" onClick={() => exportToExcel(exportRows, EXCEL_COLUMNS, "InHouse_Stays.xlsx")}><Download size={16} aria-hidden="true" /> Export Excel</Button>
+      <Button variant="primary" size="sm" onClick={() => navigate(AppEndPoints.CHECK_IN)}><LogIn size={16} aria-hidden="true" /> New check-in</Button>
     </>} />
     <StayMetrics activeRooms={activeStays.length} guestCount={totalInHouseHeadcount} liveFolioTotal={totalLiveFolioSum} departures={departingStays.length} onShowDepartures={() => setTabFilter("DEPARTING_TODAY")} />
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-panel sm:p-6">

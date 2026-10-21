@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Box, Dialog } from "@mui/material";
-import { MdOutlineBadge } from "react-icons/md";
+import { IdCard } from "lucide-react";
 import { useGetImageQuery } from "../../../store/services/guest/guestSlice";
 
 interface Props {
@@ -19,7 +19,7 @@ const IdImage = ({ value, className = "h-20 w-32", zoomable = true }: Props) => 
   if (!src) {
     return (
       <Box className={`flex items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 text-gray-400 ${className}`}>
-        <MdOutlineBadge size={26} />
+        <IdCard className="size-6" />
       </Box>
     );
   }

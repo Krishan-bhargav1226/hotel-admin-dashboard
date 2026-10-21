@@ -3,7 +3,7 @@ import { Button } from "@mui/material";
 import dayjs from "dayjs";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
-import { MdCalendarMonth, MdFormatListBulleted, MdPersonAdd } from "react-icons/md";
+import { Calendar, List, UserPlus } from "lucide-react";
 import MainContainer from "../../components/ui/container/MainContainer";
 import PageTitle from "../../components/ui/container/PageTitle";
 import UISubmitButton from "../../components/ui/buttons/UISubmitButton";
@@ -12,6 +12,7 @@ import CheckInDialog from "./components/CheckInDialog";
 import ReservationSummary from "./components/ReservationSummary";
 import ReservationListView from "./components/ReservationListView";
 import ReservationCalendar from "./components/ReservationCalendar";
+import { ShowConfirmModal } from "../../hooks/useShowConfirmModal";
 import {
   useConvertReservationToStayMutation,
   useCreateReservationMutation,
@@ -52,8 +53,8 @@ export default function Reservations() {
     guestName: "", guestPhone: "", guestEmail: "", roomTypeId: "", roomId: "",
     checkInDate: dayjs().add(1, "day").format("YYYY-MM-DD"),
     checkOutDate: dayjs().add(3, "day").format("YYYY-MM-DD"),
-    totalAmount: 4000, advanceAmount: 1000, paymentMode: "UPI" as PaymentMode,
-    source: "BOOKING_COM" as BookingSource, specialRequests: "",
+    totalAmount: 0, advanceAmount: 0, paymentMode: "UPI" as PaymentMode,
+    source: "DIRECT" as BookingSource, specialRequests: "",
   });
 
   const nights = useMemo(() => Math.max(1, dayjs(form.checkOutDate).diff(dayjs(form.checkInDate), "day")), [form.checkInDate, form.checkOutDate]);
@@ -92,7 +93,7 @@ export default function Reservations() {
       await createReservation({ ...form, nights, totalAmount: Number(form.totalAmount), advanceAmount: Number(form.advanceAmount) }).unwrap();
       toast.success("Advance reservation confirmed!");
       setOpenNewModal(false);
-      setForm({ ...form, guestName: "", guestPhone: "", guestEmail: "", roomTypeId: roomTypes[0]?.id || "", roomId: "", checkInDate: dayjs().add(1, "day").format("YYYY-MM-DD"), checkOutDate: dayjs().add(3, "day").format("YYYY-MM-DD"), totalAmount: 4000, advanceAmount: 1000, paymentMode: "UPI", source: "BOOKING_COM", specialRequests: "" });
+      setForm({ ...form, guestName: "", guestPhone: "", guestEmail: "", roomTypeId: roomTypes[0]?.id || "", roomId: "", checkInDate: dayjs().add(1, "day").format("YYYY-MM-DD"), checkOutDate: dayjs().add(3, "day").format("YYYY-MM-DD"), totalAmount: 0, advanceAmount: 0, paymentMode: "UPI", source: "DIRECT_WALKIN", specialRequests: "" });
     } catch (error) { toast.error(getErrorMessage(error)); }
   };
 
@@ -108,8 +109,16 @@ export default function Reservations() {
 
   const handleConfirmCheckIn = async () => {
     if (!checkInTarget || !checkInRoomId || !checkInPlanId) return toast.error("Please select a room and rate plan");
+    if (!checkInIdNumber.trim()) return toast.error("Government ID document number is mandatory to check in");
     try {
-      const stay = await convertReservation({ reservationId: checkInTarget.id, roomId: checkInRoomId, planId: checkInPlanId, idType: checkInIdType, idNumber: checkInIdNumber || "VERIFIED-ONLINE", address: checkInAddress }).unwrap();
+      const stay = await convertReservation({
+        reservationId: checkInTarget.id,
+        roomId: checkInRoomId,
+        planId: checkInPlanId,
+        idType: checkInIdType,
+        idNumber: checkInIdNumber.trim(),
+        address: checkInAddress.trim(),
+      }).unwrap();
       toast.success(`Check-in complete for ${checkInTarget.guestName}! Room assigned: ${stay.roomNumber}`);
       setCheckInTarget(null);
       navigate(AppEndPoints.DASHBOARD);
@@ -117,9 +126,19 @@ export default function Reservations() {
   };
 
   const handleCancel = async (reservation: Reservation) => {
-    if (!confirm(`Cancel reservation ${reservation.bookingNo}?`)) return;
-    await updateStatus({ id: reservation.id, status: "CANCELLED" });
-    toast.success("Reservation cancelled");
+    const ok = await ShowConfirmModal({
+      title: `Cancel reservation ${reservation.bookingNo}?`,
+      text: `Are you sure you want to cancel the booking for ${reservation.guestName}?`,
+      confirmButtonText: "Cancel reservation",
+      buttonColor: "red",
+    });
+    if (!ok) return;
+    try {
+      await updateStatus({ id: reservation.id, status: "CANCELLED" }).unwrap();
+      toast.success("Reservation cancelled");
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
   };
 
   const handleCalendarBooking = (room: (typeof rooms)[number], checkInDate: string, checkOutDate: string) => {
@@ -132,10 +151,10 @@ export default function Reservations() {
       <PageTitle title={APP_TEXT.titles.RESERVATIONS} subtitle="Advance bookings, channels, and the 14-day room calendar." actions={
         <div className="flex flex-wrap items-center gap-2">
           <div className="inline-flex rounded-xl bg-slate-100 p-1">
-            <Button size="small" onClick={() => setViewMode("LIST")} startIcon={<MdFormatListBulleted />} variant={viewMode === "LIST" ? "contained" : "text"}>List</Button>
-            <Button size="small" onClick={() => setViewMode("CALENDAR")} startIcon={<MdCalendarMonth />} variant={viewMode === "CALENDAR" ? "contained" : "text"}>Calendar</Button>
+            <Button size="small" onClick={() => setViewMode("LIST")} startIcon={<List size={16} />} variant={viewMode === "LIST" ? "contained" : "text"}>List</Button>
+            <Button size="small" onClick={() => setViewMode("CALENDAR")} startIcon={<Calendar size={16} />} variant={viewMode === "CALENDAR" ? "contained" : "text"}>Calendar</Button>
           </div>
-          <UISubmitButton type="button" color="primary" text="New reservation" startIcon={<MdPersonAdd size={16} />} onClick={() => { if (roomTypes.length && !form.roomTypeId) setForm((current) => ({ ...current, roomTypeId: roomTypes[0].id })); setOpenNewModal(true); }} />
+          <UISubmitButton type="button" color="primary" text="New reservation" startIcon={<UserPlus size={16} />} onClick={() => { if (roomTypes.length && !form.roomTypeId) setForm((current) => ({ ...current, roomTypeId: roomTypes[0].id })); setOpenNewModal(true); }} />
         </div>
       } />
       <ReservationSummary stats={stats} />

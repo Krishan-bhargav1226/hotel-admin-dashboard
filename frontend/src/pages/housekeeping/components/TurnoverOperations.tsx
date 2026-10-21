@@ -1,14 +1,14 @@
 import { useState, type Dispatch, type SetStateAction } from "react";
 import dayjs from "dayjs";
 import {
-  MdChecklist,
-  MdCleaningServices,
-  MdDragIndicator,
-  MdMoveDown,
-  MdOutlinePendingActions,
-  MdTimer,
-  MdWarning,
-} from "react-icons/md";
+  ClipboardCheck,
+  Sparkles,
+  GripVertical,
+  ArrowDown,
+  Clock,
+  Timer,
+  AlertTriangle,
+} from "lucide-react";
 import RoomPhoto from "../../../components/ui/room/RoomPhoto";
 import SectionBox from "../../../components/ui/container/SectionBox";
 import { STATUS_CONFIG } from "./statusConfig";
@@ -119,7 +119,7 @@ export default function TurnoverOperations({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-card">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 flex items-center gap-1 text-xs font-semibold text-slate-500"><MdOutlinePendingActions size={14} />Status:</span>
+          <span className="mr-1 flex items-center gap-1 text-xs font-semibold text-slate-500"><Clock size={14} />Status:</span>
           {(["ALL", ...stages] as const).map((status) => (
             <button key={status} type="button" onClick={() => setFilterCleanStatus(status)} className={`rounded-full px-3 py-1 text-xs font-bold transition-all ${filterCleanStatus === status ? "bg-brand-600 text-white shadow-xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
               {status === "ALL" ? "All Rooms" : STATUS_CONFIG[status].stage}
@@ -138,7 +138,7 @@ export default function TurnoverOperations({
 
       {rushTasks.length > 0 && (
         <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-800">
-          <MdWarning size={16} /> {rushTasks.length} rush {rushTasks.length === 1 ? "room needs" : "rooms need"} cleaning before guest arrival.
+          <AlertTriangle size={16} /> {rushTasks.length} rush {rushTasks.length === 1 ? "room needs" : "rooms need"} cleaning before guest arrival.
         </div>
       )}
 
@@ -147,7 +147,7 @@ export default function TurnoverOperations({
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
               <span className="flex h-5 w-5 items-center justify-center rounded-md bg-emerald-50 text-emerald-700">
-                <MdDragIndicator size={14} />
+                <GripVertical size={14} />
               </span>
               <span>Drag & drop room cards across stages to change room status instantly</span>
             </div>
@@ -223,7 +223,7 @@ export default function TurnoverOperations({
                                 title="Drag to change stage"
                                 className="flex items-center gap-0.5 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-xs transition group-hover:bg-black/80"
                               >
-                                <MdDragIndicator size={12} />
+                                <GripVertical size={12} />
                                 <span>Drag</span>
                               </span>
                             </div>
@@ -245,7 +245,7 @@ export default function TurnoverOperations({
 
                             {task.status === "CLEANING" && (
                               <div className="flex items-center gap-1 text-[11px] font-medium text-sky-700">
-                                <MdTimer size={13} /> Started {dayjs(task.updatedAt).format("hh:mm A")}
+                                <Timer size={13} /> Started {dayjs(task.updatedAt).format("hh:mm A")}
                               </div>
                             )}
 
@@ -281,7 +281,7 @@ export default function TurnoverOperations({
                                   onClick={() => handleOpenInspection(task)}
                                   className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition"
                                 >
-                                  <MdChecklist size={14} />
+                                  <ClipboardCheck size={14} />
                                   <span>Inspect</span>
                                 </button>
                               )}
@@ -291,7 +291,7 @@ export default function TurnoverOperations({
                                   onClick={() => void handleStatusChange(task.roomId, "CLEANING")}
                                   className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-sky-200 bg-sky-50 px-2 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100 transition"
                                 >
-                                  <MdCleaningServices size={14} />
+                                  <Sparkles size={14} />
                                   <span>Start cleaning</span>
                                 </button>
                               )}
@@ -311,14 +311,14 @@ export default function TurnoverOperations({
                           color: config.color,
                         }}
                       >
-                        <MdMoveDown size={22} />
+                        <ArrowDown size={22} />
                         <span>Move Room {activeDraggedTask?.roomNumber} to {config.stage}</span>
                       </div>
                     )}
 
                     {stageTasks.length === 0 && !isOverThisStage && (
                       <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white/70 p-6 text-center text-xs text-slate-400">
-                        <MdDragIndicator size={20} className="mb-1 text-slate-300" />
+                        <GripVertical size={20} className="mb-1 text-slate-300" />
                         <p className="font-semibold text-slate-500">No rooms in this stage</p>
                         <p className="mt-0.5 text-[11px] text-slate-400">Drag a room card here to update status</p>
                       </div>

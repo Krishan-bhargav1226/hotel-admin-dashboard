@@ -40,12 +40,14 @@ export default function GlobalSearch({ query, setQuery, focused, setFocused, roo
     return () => window.removeEventListener("keydown", handleShortcut);
   }, [setFocused]);
 
-  return <div className="relative flex min-w-0 flex-1 items-center gap-2">
-    <div className={cn("flex h-10 min-w-0 flex-1 items-center gap-2 rounded-lg border px-3 transition-colors duration-200 sm:max-w-md", focused ? "border-brand-600 bg-white ring-2 ring-brand-500/20 dark:bg-slate-900" : "border-slate-200 bg-slate-50 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900")}>
-      <Search className="size-4 shrink-0 text-slate-400" aria-hidden="true" />
-      <input id="global-search-input" type="search" value={query} onChange={(event) => setQuery(event.target.value)} onFocus={() => setFocused(true)} onBlur={() => setTimeout(() => setFocused(false), 200)} placeholder="Search room, guest, booking" aria-label="Search rooms, guests, and bookings" className="h-full min-w-0 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-100" />
-      <kbd className="hidden rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-500 md:inline dark:border-slate-700 dark:bg-slate-800">Ctrl+K</kbd>
+  return (
+    <div className="relative hidden sm:flex min-w-0 flex-1 max-w-[14rem] md:max-w-[18rem] lg:max-w-[22rem] items-center gap-2">
+      <div className={cn("flex h-10 min-w-0 flex-1 items-center gap-2 rounded-lg border px-3 transition-colors duration-200", focused ? "border-brand-600 bg-white ring-2 ring-brand-500/20 dark:bg-slate-900" : "border-slate-200 bg-slate-50 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900")}>
+        <Search className="size-4 shrink-0 text-slate-400" aria-hidden="true" />
+        <input id="global-search-input" type="search" value={query} onChange={(event) => setQuery(event.target.value)} onFocus={() => setFocused(true)} onBlur={() => setTimeout(() => setFocused(false), 200)} placeholder="Search room, guest, booking" aria-label="Search rooms, guests, and bookings" className="h-full min-w-0 flex-1 bg-transparent text-xs text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-100" />
+        <kbd className="hidden rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-500 xl:inline dark:border-slate-700 dark:bg-slate-800">Ctrl+K</kbd>
+      </div>
+      {focused && results && <div className="absolute left-12 top-12 z-50 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-card"><SearchResults results={results} onNavigate={onNavigate} /></div>}
     </div>
-    {focused && results && <div className="absolute left-12 top-12 z-50 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-card"><SearchResults results={results} onNavigate={onNavigate} /></div>}
-  </div>;
+  );
 }

@@ -1,11 +1,8 @@
-# Hotel Admin Dashboard
+# Hotel Admin Dashboard Demo
 
-Project frontend aur backend me split hai:
+Frontend-only hotel operations dashboard built with React, TypeScript, Vite, Redux Toolkit, MUI, and Tailwind.
 
-- `frontend/` — React, TypeScript, Vite dashboard
-- `backend/` — ASP.NET Core clean-architecture API aur tests
-
-## Frontend
+## Run locally
 
 ```powershell
 cd frontend
@@ -13,25 +10,24 @@ npm install
 npm run dev
 ```
 
-Frontend default me browser IndexedDB use karta hai. API connect karne ke liye `frontend/.env.local` banao:
+Or run the existing root scripts with `npm run dev` and `npm run build`.
 
-```env
-VITE_API_BASE_URL=http://localhost:5050
-```
+## Demo access
 
-## Backend
+All five demo accounts use the password `admin 123`:
 
-Backend setup, SQL Server connection aur API details ke liye [`backend/README.md`](backend/README.md) dekho.
+| Role | Username |
+| --- | --- |
+| Super admin · chain office | `superadmin` |
+| Hotel 1 admin · Jaipur | `hotel1admin` |
+| Hotel 1 front desk · Jaipur | `hotel1desk` |
+| Hotel 2 admin · Goa | `hotel2admin` |
+| Hotel 2 front desk · Goa | `hotel2desk` |
 
-Repo root se API aur checks chala sakte ho:
+Super admin opens the combined hotel overview, with portfolio charts and filters. Hotel accounts open their own hotel desk.
 
-```powershell
-dotnet run --project backend/WebApi
-dotnet build backend/HotelAdmin.slnx
-dotnet test backend/HotelAdmin.slnx
-```
+This is a static frontend demo: demo credentials are visible in the downloaded app, and data is stored only in this browser's IndexedDB. Do not use it to protect real hotel or guest data. Use **Settings → Backup & Export** to download or restore a local data backup.
 
-## Project files
+## GitHub Pages
 
-Git metadata aur shared `.gitignore` repository root par hain. Frontend dependencies/config aur local
-Vite environment files `frontend/` ke andar hain; backend configuration `backend/` ke andar hai.
+The `main` branch workflow builds `frontend` and publishes it to GitHub Pages. Set the repository's Pages source to **GitHub Actions** once in repository settings. The public site URL is `https://krishan-bhargav1226.github.io/hotel-admin-dashboard/`.

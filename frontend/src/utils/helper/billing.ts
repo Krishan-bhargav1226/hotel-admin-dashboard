@@ -93,6 +93,21 @@ export const calculateBill = ({
   };
 };
 
+/** What the guest would owe if they left at the plan's included time (or the hourly minimum). */
+export const estimateStayCharge = (plan: RatePlan, checkInAt: string, taxPercent: number): BillBreakdown => {
+  const expected = computeExpectedCheckOut(plan, checkInAt);
+  const checkOutAt = expected ?? dayjs(checkInAt).add(Math.max(plan.minHours || 1, 1), "hour").toISOString();
+  return calculateBill({
+    plan,
+    checkInAt,
+    checkOutAt,
+    expectedCheckOutAt: expected,
+    extraCharges: [],
+    discount: 0,
+    taxPercent,
+  });
+};
+
 /** One-line description of a plan, used in dropdowns and summaries. */
 export const describePlan = (plan: RatePlan): string => {
   if (plan.kind === "HOURLY") {

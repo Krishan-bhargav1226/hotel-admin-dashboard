@@ -20,7 +20,7 @@ export default function RatePlanFields() {
     {values.kind === "TILL_TIME" && <TextInput name="checkoutTime" label="Valid till (time)" type="time" required />}
     {values.kind === "HOURLY" && <TextInput name="minHours" label="Minimum hours billed" type="number" />}
     {values.kind !== "HOURLY" && <TextInput name="overtimeRate" label="Extra hour rate ₹ (after time ends)" type="number" />}
-    <TextInput name="graceMinutes" label="Grace minutes" type="number" helper="Itne minute tak extra charge nahi lagega" />
-    <SearchableSelectDropdown name="roomTypeIds" label="Applies to room types" multiple options={types.map((type) => ({ id: type.id, name: type.name }))} helper="Khali chhodo = sab rooms par lagega" />
+    <TextInput name="graceMinutes" label="Grace minutes" type="number" helper="No extra charge applied within this grace period" />
+    <SearchableSelectDropdown name="roomTypeIds" label="Applies to room types" multiple options={types.map((type) => ({ id: type.id, name: type.name }))} helper="Leave empty to apply to all room types" />
   </>;
 }

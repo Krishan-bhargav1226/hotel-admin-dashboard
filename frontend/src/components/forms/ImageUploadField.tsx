@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { Box, Button } from "@mui/material";
 import { useField } from "formik";
 import toast from "react-hot-toast";
-import { MdCameraAlt } from "react-icons/md";
+import { Camera } from "lucide-react";
 import IdImage from "../ui/image/IdImage";
 import { compressImage } from "../../utils/helper/image";
 
@@ -21,7 +21,7 @@ const ImageUploadField = ({ name, label = "ID photo" }: Props) => {
     try {
       helpers.setValue(await compressImage(file));
     } catch {
-      toast.error("Photo read nahi ho payi, dobara try karo");
+      toast.error("Failed to read photo, please try again");
     }
   };
 
@@ -34,7 +34,7 @@ const ImageUploadField = ({ name, label = "ID photo" }: Props) => {
           <Button
             size="small"
             variant="outlined"
-            startIcon={<MdCameraAlt />}
+            startIcon={<Camera className="size-4" />}
             onClick={() => inputRef.current?.click()}
           >
             {field.value ? "Change photo" : "Add photo"}

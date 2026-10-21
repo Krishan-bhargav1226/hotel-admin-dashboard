@@ -12,8 +12,8 @@ export default {
         sans: ["Plus Jakarta Sans", "system-ui", "sans-serif"],
       },
       boxShadow: {
-        card: "0 1px 2px rgba(32, 41, 35, 0.035), 0 10px 28px rgba(32, 55, 40, 0.055)",
-        panel: "0 1px 2px rgba(32, 41, 35, 0.04), 0 4px 12px rgba(32, 55, 40, 0.035)",
+        card: "0 1px 2px rgba(39, 29, 25, 0.035), 0 10px 28px rgba(39, 29, 25, 0.05)",
+        panel: "0 1px 2px rgba(39, 29, 25, 0.035), 0 4px 14px rgba(39, 29, 25, 0.035)",
       },
     },
   },

@@ -2,9 +2,7 @@ import { useMemo, useState } from "react";
 import { Box, TextField } from "@mui/material";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { FaPenToSquare } from "react-icons/fa6";
-import { FaTrashAlt } from "react-icons/fa";
-import { IoMdEye } from "react-icons/io";
+import { Eye, Edit3, Trash2 } from "lucide-react";
 import MainContainer from "../../components/ui/container/MainContainer";
 import PageTitle from "../../components/ui/container/PageTitle";
 import RenderTable from "../../components/tables/RenderTable";
@@ -21,6 +19,7 @@ import { useDeleteGuestMutation, useGetGuestsQuery } from "../../store/services/
 import { useClientPagination } from "../../hooks/useClientPagination";
 import { ShowConfirmModal } from "../../hooks/useShowConfirmModal";
 import { AppEndPoints } from "../../utils/rout-endpoints/AppEndPoints";
+import MaskedId from "../../components/ui/MaskedId";
 import { buildPath, formatCurrency, getErrorMessage, maskId } from "../../utils/helper/helper";
 import { formatFullDate } from "../../utils/date/dateUtils";
 import { idTypeName } from "../../utils/helper/constants";
@@ -46,8 +45,9 @@ const Guests = () => {
   const pg = useClientPagination(filtered);
 
   const rows = filtered.map((g, i) => ({
-    srNo: i + 1, name: g.name, phone: g.phone, idType: idTypeName(g.idType), idNumber: g.idNumber, address: g.address,
+    srNo: i + 1, name: g.name, phone: g.phone, idType: idTypeName(g.idType), address: g.address,
     visits: g.visits, lastVisit: formatFullDate(g.lastVisitAt), totalSpent: g.totalSpent,
+    idNumber: maskId(g.idNumber),
   }));
 
   const handleDelete = async (g: Guest) => {
@@ -72,7 +72,7 @@ const Guests = () => {
       <Box className="mb-4">
         <TextField
           size="small" label="Search by name, phone or ID number" value={search}
-          onChange={(e) => { setSearch(e.target.value); pg.reset(); }} sx={{ minWidth: 320, bgcolor: "white" }}
+          onChange={(e) => { setSearch(e.target.value); pg.reset(); }} sx={{ minWidth: { xs: "100%", sm: 320 }, bgcolor: "white", "& .MuiInputBase-root": { minHeight: 44 } }}
         />
       </Box>
 
@@ -89,7 +89,7 @@ const Guests = () => {
                 <p className="font-semibold">{g.name}{g.isFlagged && <span className="ml-2 align-middle"><StatusChip label="Flagged" color={colors.danger} /></span>}</p>
                 <p className="text-xs text-gray-500">{g.phone}</p>
               </td>
-              <td className="p-3 text-sm">{idTypeName(g.idType)}<span className="block text-xs text-gray-500">{maskId(g.idNumber)}</span></td>
+              <td className="p-3 text-sm">{idTypeName(g.idType)}<MaskedId value={g.idNumber} className="mt-0.5 text-gray-500" /></td>
               <td className="p-3 text-sm">
                 {g.visits}
                 {g.visits > 1 && <span className="ml-2 align-middle"><StatusChip label="Repeat" color={colors.success} /></span>}
@@ -98,9 +98,9 @@ const Guests = () => {
               <td className="p-3 text-sm font-semibold">{formatCurrency(g.totalSpent)}</td>
               <td className="p-3 rounded-r-lg">
                 <Box className="flex gap-1">
-                  <IconButton tooltip="View" icon={<IoMdEye size={16} />} bgColor="ORANGE" onClick={() => navigate(buildPath(AppEndPoints.GUEST_DETAILS, g.id))} />
-                  <IconButton tooltip="Edit" icon={<FaPenToSquare size={16} />} bgColor="GREEN" onClick={() => setDrawer({ open: true, guest: g })} />
-                  <IconButton tooltip="Delete" icon={<FaTrashAlt size={16} />} onClick={() => handleDelete(g)} />
+                  <IconButton tooltip="View" icon={<Eye size={16} />} bgColor="ORANGE" onClick={() => navigate(buildPath(AppEndPoints.GUEST_DETAILS, g.id))} />
+                  <IconButton tooltip="Edit" icon={<Edit3 size={16} />} bgColor="GREEN" onClick={() => setDrawer({ open: true, guest: g })} />
+                  <IconButton tooltip="Delete" icon={<Trash2 size={16} />} onClick={() => handleDelete(g)} />
                 </Box>
               </td>
             </TableRow>

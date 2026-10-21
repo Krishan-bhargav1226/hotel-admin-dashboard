@@ -1,9 +1,11 @@
 import { Button, Chip } from "@mui/material";
-import { MdAccessTime, MdDelete, MdPhone } from "react-icons/md";
+import { Phone, Clock, Trash2 } from "lucide-react";
 import SectionBox from "../../../components/ui/container/SectionBox";
 import type { StaffMember, StaffRole } from "../../../utils/interfaces/Interface";
 
 const ROLE_LABELS: Record<StaffRole, { label: string; color: "primary" | "secondary" | "info" | "warning" | "default" }> = {
+  SUPER_ADMIN: { label: "Super Admin (HQ)", color: "secondary" },
+  ADMIN: { label: "Property Admin", color: "primary" },
   MANAGER: { label: "General Manager", color: "secondary" },
   RECEPTIONIST: { label: "Front Desk Receptionist", color: "primary" },
   HOUSEKEEPING: { label: "Housekeeping Executive", color: "info" },
@@ -36,8 +38,8 @@ export default function StaffDirectory({ staff, onToggleDuty, onEdit, onDelete }
                 <Chip size="small" label={isOnDuty ? "On Duty" : "Off Duty"} color={isOnDuty ? "success" : "default"} variant={isOnDuty ? "filled" : "outlined"} sx={{ fontSize: "0.7rem", fontWeight: 800 }} />
               </div>
               <div className="mt-4 space-y-1.5 text-xs text-gray-600">
-                <div className="flex items-center gap-2"><MdPhone className="text-gray-400" /><span className="font-mono">{member.phone}</span></div>
-                <div className="flex items-center gap-2"><MdAccessTime className="text-gray-400" /><span>Shift: <strong>{member.shift}</strong></span></div>
+                <div className="flex items-center gap-2"><Phone size={14} className="text-gray-400" /><span className="font-mono">{member.phone}</span></div>
+                <div className="flex items-center gap-2"><Clock size={14} className="text-gray-400" /><span>Shift: <strong>{member.shift}</strong></span></div>
               </div>
             </div>
 
@@ -47,7 +49,7 @@ export default function StaffDirectory({ staff, onToggleDuty, onEdit, onDelete }
               </Button>
               <div className="flex gap-1">
                 <Button size="small" variant="text" onClick={() => onEdit(member)} sx={{ fontSize: "0.75rem" }}>Edit</Button>
-                <Button size="small" color="error" onClick={() => onDelete(member)} sx={{ minWidth: "auto", p: 0.5 }} aria-label={`Remove ${member.name}`}><MdDelete size={16} /></Button>
+                <Button size="small" color="error" onClick={() => onDelete(member)} sx={{ minWidth: "auto", p: 0.5 }} aria-label={`Remove ${member.name}`}><Trash2 size={16} /></Button>
               </div>
             </div>
           </SectionBox>

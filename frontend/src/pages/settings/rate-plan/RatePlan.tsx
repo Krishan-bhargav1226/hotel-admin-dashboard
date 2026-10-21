@@ -28,7 +28,7 @@ const RatePlan = () => {
   const close = () => setDrawer((current) => ({ ...current, open: false }));
 
   const handleDelete = async (item: RatePlanModel) => {
-    const confirmed = await ShowConfirmModal({ title: `Delete "${item.name}"?`, text: "Purani stays ke bill par koi asar nahi padega.", confirmButtonText: "Delete" });
+    const confirmed = await ShowConfirmModal({ title: `Delete "${item.name}"?`, text: "Existing stay bills will not be affected.", confirmButtonText: "Delete" });
     if (!confirmed) return;
     try { await remove(item.id).unwrap(); toast.success("Plan deleted"); }
     catch (error) { toast.error(getErrorMessage(error)); }

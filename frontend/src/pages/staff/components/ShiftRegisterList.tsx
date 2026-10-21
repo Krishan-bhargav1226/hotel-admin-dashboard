@@ -1,6 +1,6 @@
 import { Box, Chip, Typography } from "@mui/material";
 import dayjs from "dayjs";
-import { MdPointOfSale } from "react-icons/md";
+import { Landmark } from "lucide-react";
 import SectionBox from "../../../components/ui/container/SectionBox";
 import { formatCurrency } from "../../../utils/helper/helper";
 import type { ShiftRegister } from "../../../utils/interfaces/Interface";
@@ -11,7 +11,7 @@ export default function ShiftRegisterList({ shifts }: { shifts: ShiftRegister[] 
       <Typography variant="h6" fontWeight={700} className="mb-3 text-slate-900">Front Desk Cash Register Handover Logs</Typography>
       {shifts.length === 0 ? (
         <Box className="py-12 text-center text-gray-400">
-          <MdPointOfSale size={48} className="mx-auto mb-2 opacity-40" />
+          <Landmark size={48} className="mx-auto mb-2 opacity-40" />
           <Typography variant="body1" fontWeight={600}>No shift handover records yet</Typography>
           <Typography variant="caption">Record closing drawer balance during front desk staff shift changes</Typography>
         </Box>

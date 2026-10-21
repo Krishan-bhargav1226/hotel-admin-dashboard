@@ -44,11 +44,11 @@ export default function MetricCard({ label, value, note, icon, tone = "neutral",
     <>
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-xs font-semibold text-slate-500 dark:text-slate-400">{label}</h2>
-        <span className={cn("inline-flex size-8 shrink-0 items-center justify-center rounded-xl", palette.icon)}>
+        <span className={cn("inline-flex size-9 shrink-0 items-center justify-center rounded-xl", palette.icon)}>
           {icon}
         </span>
       </div>
-      <p className={cn("mt-3 truncate font-mono text-xl font-bold leading-tight tracking-tight tabular-nums sm:text-2xl", palette.value)}>
+      <p className={cn("mt-3 truncate font-mono text-[1.35rem] font-bold leading-tight tracking-[-0.035em] tabular-nums sm:text-[1.65rem]", palette.value)}>
         {value}
       </p>
       <p className="mt-1.5 min-h-5 text-xs leading-5 text-slate-500 dark:text-slate-400">{note}</p>

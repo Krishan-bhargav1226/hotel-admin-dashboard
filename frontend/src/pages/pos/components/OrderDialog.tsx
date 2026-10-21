@@ -1,4 +1,5 @@
-import type { FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
+import { Search } from "lucide-react";
 import { Button, DialogActions, FormControl, InputLabel, MenuItem, Select, TextField } from "@mui/material";
 import UiDialog from "../../../components/ui/models/UiDialog";
 import UISubmitButton from "../../../components/ui/buttons/UISubmitButton";
@@ -59,6 +60,19 @@ export default function OrderDialog({
   onNotesChange,
   isOrdering,
 }: OrderDialogProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredMenuItems = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return menuItems;
+    return menuItems.filter(
+      (item) =>
+        item.name.toLowerCase().includes(q) ||
+        item.category.toLowerCase().includes(q) ||
+        (CATEGORY_LABELS[item.category] && CATEGORY_LABELS[item.category].toLowerCase().includes(q)),
+    );
+  }, [menuItems, searchQuery]);
+
   return (
     <UiDialog open={open} onClose={onClose} title="New Room Service & Amenity Order" maxWidth="md">
       <form onSubmit={onSubmit} className="space-y-4 pt-1">
@@ -83,36 +97,56 @@ export default function OrderDialog({
         </div>
 
         <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs font-semibold text-slate-700">Menu & Amenities Catalog</label>
-            <span className="text-[11px] text-slate-400 font-medium">{menuItems.length} items available</span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+            <div>
+              <label className="text-xs font-semibold text-slate-700 block">Menu & Amenities Catalog</label>
+              <span className="text-[11px] text-slate-400 font-medium">
+                Showing {filteredMenuItems.length} of {menuItems.length} items
+              </span>
+            </div>
+            <label className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 text-xs sm:w-60">
+              <Search className="size-3.5 text-slate-400" />
+              <input
+                type="search"
+                placeholder="Search food, drinks, laundry..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-transparent outline-none placeholder:text-slate-400 text-slate-900"
+              />
+            </label>
           </div>
           <div className="max-h-60 overflow-y-auto space-y-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-2">
-            {menuItems.map((item) => {
-              const quantity = orderCart[item.id] || 0;
-              return (
-                <div key={item.id} className="flex items-center justify-between rounded-lg border border-slate-200/90 bg-white p-2.5 shadow-2xs">
-                  <div>
-                    <div className="font-semibold text-xs text-slate-900">{item.name}</div>
-                    <div className="text-[11px] text-slate-500 font-mono">
-                      {CATEGORY_LABELS[item.category]} · {formatCurrency(item.price)}
+            {filteredMenuItems.length === 0 ? (
+              <div className="py-6 text-center text-xs text-slate-500">
+                No menu items match "{searchQuery}"
+              </div>
+            ) : (
+              filteredMenuItems.map((item) => {
+                const quantity = orderCart[item.id] || 0;
+                return (
+                  <div key={item.id} className="flex items-center justify-between rounded-lg border border-slate-200/90 bg-white p-2.5 shadow-2xs">
+                    <div>
+                      <div className="font-semibold text-xs text-slate-900">{item.name}</div>
+                      <div className="text-[11px] text-slate-500 font-mono">
+                        {CATEGORY_LABELS[item.category]} · {formatCurrency(item.price)}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={() => updateCartQty(item.id, -1)} disabled={quantity === 0} className="w-7 h-7 rounded-lg border border-slate-200 bg-white font-bold text-slate-700 hover:bg-slate-50 active:scale-[0.95] disabled:opacity-30 cursor-pointer flex items-center justify-center transition-all">-</button>
+                      <span className="w-5 text-center font-mono font-bold text-xs text-slate-900">{quantity}</span>
+                      <button type="button" onClick={() => updateCartQty(item.id, 1)} className="w-7 h-7 rounded-lg bg-brand-700 text-white font-bold hover:bg-brand-800 active:scale-[0.95] cursor-pointer flex items-center justify-center transition-all">+</button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => updateCartQty(item.id, -1)} disabled={quantity === 0} className="w-7 h-7 rounded-lg border border-slate-200 bg-white font-bold text-slate-700 hover:bg-slate-50 active:scale-[0.95] disabled:opacity-30 cursor-pointer flex items-center justify-center transition-all">-</button>
-                    <span className="w-5 text-center font-mono font-bold text-xs text-slate-900">{quantity}</span>
-                    <button type="button" onClick={() => updateCartQty(item.id, 1)} className="w-7 h-7 rounded-lg bg-brand-700 text-white font-bold hover:bg-brand-800 active:scale-[0.95] cursor-pointer flex items-center justify-center transition-all">+</button>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
           <div>
             <div className="text-slate-500">Cart Items: <strong className="text-slate-800">{cartItemsList.length} items selected</strong></div>
-            <div className="text-slate-500 text-[11px] mt-0.5">Subtotal: {formatCurrency(cartSubtotal)} + 5% GST: {formatCurrency(cartTax)}</div>
+            <div className="text-slate-500 text-[11px] mt-0.5">Subtotal: {formatCurrency(cartSubtotal)} + Tax: {formatCurrency(cartTax)}</div>
             <div className="text-base font-bold text-slate-900 mt-1 font-mono">Total Bill: {formatCurrency(cartTotal)}</div>
           </div>
           <div className="flex flex-col gap-1.5">

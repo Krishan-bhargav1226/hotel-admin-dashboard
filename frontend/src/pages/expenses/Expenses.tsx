@@ -8,6 +8,7 @@ import ExpenseLedger from "./components/ExpenseLedger";
 import ExpensePageHeader from "./components/ExpensePageHeader";
 import useExpenseDashboardData from "./useExpenseDashboardData";
 import { CATEGORY_MAP } from "./expenseConfig";
+import { ShowConfirmModal } from "../../hooks/useShowConfirmModal";
 import { useCreateExpenseMutation, useDeleteExpenseMutation, useGetExpensesQuery } from "../../store/services/expense/expenseSlice";
 import { useGetStaysQuery } from "../../store/services/stay/staySlice";
 import { getErrorMessage } from "../../utils/helper/helper";
@@ -46,9 +47,19 @@ export default function Expenses() {
   };
 
   const handleDeleteExpense = async (expense: HotelExpense) => {
-    if (!confirm(`Delete expense "${expense.title}"?`)) return;
-    await deleteExpense(expense.id);
-    toast.success("Expense deleted");
+    const ok = await ShowConfirmModal({
+      title: `Delete expense "${expense.title}"?`,
+      text: "This expense record will be permanently removed from the ledger.",
+      confirmButtonText: "Delete expense",
+      buttonColor: "red",
+    });
+    if (!ok) return;
+    try {
+      await deleteExpense(expense.id).unwrap();
+      toast.success("Expense deleted");
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
   };
 
   return <MainContainer>

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Box, Button } from "@mui/material";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { MdQrCodeScanner, MdRoomService } from "react-icons/md";
+import { QrCode, ConciergeBell, FileText } from "lucide-react";
 import MainContainer from "../../components/ui/container/MainContainer";
 import PageTitle from "../../components/ui/container/PageTitle";
 import { Skeleton } from "../../components/ui/skeleton";
@@ -13,8 +13,8 @@ import StayGuestPanel from "./components/StayGuestPanel";
 import AssignedRoomPanel from "./components/AssignedRoomPanel";
 import StayBillPanel from "./components/StayBillPanel";
 import UpiQrModal from "../../components/ui/models/UpiQrModal";
+import FolioModal from "../../components/ui/models/FolioModal";
 import RoomGalleryModal from "../../components/ui/room/RoomGalleryModal";
-import { printReceipt } from "../../components/print/printPdf/PrintReceipt";
 import { useCollectDueMutation, useGetStayByIdQuery, useUpdateStayMutation } from "../../store/services/stay/staySlice";
 import { useGetRoomsQuery } from "../../store/services/room/roomSlice";
 import { useGetSettingsQuery } from "../../store/services/settings/settingsSlice";
@@ -22,6 +22,7 @@ import { getRoomMeta } from "../../utils/helper/roomImages";
 import { useNow } from "../../hooks/useNow";
 import { calculateBill } from "../../utils/helper/billing";
 import { getErrorMessage, uid } from "../../utils/helper/helper";
+import { billForStayRooms, stayRoomCount } from "../../utils/helper/stayRooms";
 import { AppEndPoints } from "../../utils/rout-endpoints/AppEndPoints";
 import { colors } from "../../utils/theme/colorTheme";
 
@@ -35,6 +36,7 @@ const StayDetails = () => {
   const [updateStay] = useUpdateStayMutation();
   const [collectDue, { isLoading: collecting }] = useCollectDueMutation();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [folioOpen, setFolioOpen] = useState(false);
   const [upiOpen, setUpiOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [label, setLabel] = useState("");
@@ -46,7 +48,12 @@ const StayDetails = () => {
   const room = rooms.find((item) => item.id === stay.roomId);
   const roomMeta = getRoomMeta(room, { name: stay.roomTypeName, category: room?.category });
   const active = stay.status === "ACTIVE";
-  const bill = active ? calculateBill({ plan: stay.plan, checkInAt: stay.checkInAt, checkOutAt: new Date(now).toISOString(), expectedCheckOutAt: stay.expectedCheckOutAt, extraCharges: stay.extraCharges, discount: stay.discount, taxPercent: stay.taxPercent }) : stay.bill;
+  const bill = active
+    ? billForStayRooms(
+        calculateBill({ plan: stay.plan, checkInAt: stay.checkInAt, checkOutAt: new Date(now).toISOString(), expectedCheckOutAt: stay.expectedCheckOutAt, extraCharges: stay.extraCharges, discount: stay.discount, taxPercent: stay.taxPercent }),
+        stayRoomCount(stay),
+      )
+    : stay.bill;
   const currentPayable = active ? bill?.total || 0 : stay.dueAmount > 0 ? stay.dueAmount : stay.totalAmount;
 
   const addExtra = async () => {
@@ -77,9 +84,10 @@ const StayDetails = () => {
       <PageTitle title={`${stay.stayNo} · Room ${stay.roomNumber}`} subtitle={`${stay.guestName} · ${stay.guestPhone}`} actions={
         <div className="flex flex-wrap items-center gap-2">
           <StatusChip label={active ? "In House Guest" : "Completed Stay"} color={active ? colors.status.occupied : colors.status.available} />
-          <Button size="small" variant="outlined" color="primary" startIcon={<MdQrCodeScanner />} onClick={() => setUpiOpen(true)} sx={{ fontWeight: 700, textTransform: "none" }}>UPI Payment QR</Button>
-          {active && <Button size="small" variant="outlined" color="secondary" startIcon={<MdRoomService />} onClick={() => navigate(AppEndPoints.POS_SERVICES)} sx={{ fontWeight: 700, textTransform: "none" }}>Room Service</Button>}
-          {active ? <UISubmitButton type="button" color="secondary" text="Check out" onClick={() => setCheckoutOpen(true)} /> : <UISubmitButton type="button" variant="outlined" text="Print Tax Invoice" onClick={() => settings && printReceipt(stay, settings)} />}
+          <Button size="small" variant="outlined" color="primary" startIcon={<QrCode size={16} />} onClick={() => setUpiOpen(true)} sx={{ fontWeight: 700, textTransform: "none" }}>UPI Payment QR</Button>
+          <Button size="small" variant="outlined" color="info" startIcon={<FileText size={16} />} onClick={() => setFolioOpen(true)} sx={{ fontWeight: 700, textTransform: "none" }}>Folio & Bill Print</Button>
+          {active && <Button size="small" variant="outlined" color="secondary" startIcon={<ConciergeBell size={16} />} onClick={() => navigate(AppEndPoints.POS_SERVICES)} sx={{ fontWeight: 700, textTransform: "none" }}>Room Service</Button>}
+          {active ? <UISubmitButton type="button" color="secondary" text="Check out" onClick={() => setCheckoutOpen(true)} /> : <UISubmitButton type="button" variant="outlined" text="Print Tax Invoice" onClick={() => setFolioOpen(true)} />}
         </div>
       } />
 
@@ -92,6 +100,7 @@ const StayDetails = () => {
       </Box>
 
       <CheckoutDialog stay={checkoutOpen ? stay : null} onClose={() => setCheckoutOpen(false)} />
+      <FolioModal open={folioOpen} onClose={() => setFolioOpen(false)} stay={stay} hotel={settings ?? null} />
       <UpiQrModal open={upiOpen} onClose={() => setUpiOpen(false)} hotelName={settings?.hotelName || "Grand Horizon Hotel"} upiId={settings?.upiId || "grandhorizon@okaxis"} amount={currentPayable} stayNo={stay.stayNo} description={`Room ${stay.roomNumber} Bill`} />
       <RoomGalleryModal open={galleryOpen} onClose={() => setGalleryOpen(false)} roomNumber={stay.roomNumber} roomTypeName={stay.roomTypeName} category={room?.category || roomMeta.category} images={room?.images || roomMeta.gallery} bedConfig={room?.bedConfig || roomMeta.bedConfig} maxGuests={room?.maxGuests || roomMeta.maxGuests} sizeSqFt={room?.sizeSqFt || roomMeta.sizeSqFt} amenities={room?.amenities || roomMeta.amenities} />
     </MainContainer>

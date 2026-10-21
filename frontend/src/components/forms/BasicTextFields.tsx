@@ -18,6 +18,7 @@ interface TextInputProps {
   prefix?: ReactNode;
   suffix?: ReactNode;
   helper?: string;
+  autoComplete?: string;
   onValueChange?: (value: string) => void;
 }
 
@@ -36,6 +37,7 @@ export const TextInput = ({
   prefix,
   suffix,
   helper,
+  autoComplete,
   onValueChange,
 }: TextInputProps) => {
   const [field, meta, helpers] = useField(name);
@@ -46,14 +48,14 @@ export const TextInput = ({
     let next = value;
     if (digitsOnly) next = next.replace(/\D/g, "");
     if (maxLength) next = next.slice(0, maxLength);
-    helpers.setValue(next);
-    onValueChange?.(next);
+    if (onValueChange) onValueChange(next);
+    else helpers.setValue(next);
   };
 
   const controlClass = cn(
     fieldClass,
     "h-auto min-h-10 py-2",
-    prefix && "pl-9",
+    prefix && "pl-12",
     suffix && "pr-9",
     showError && "border-rose-400 focus-visible:border-rose-500 focus-visible:ring-rose-500/30"
   );
@@ -74,6 +76,7 @@ export const TextInput = ({
             rows={rows}
             placeholder={placeholder}
             autoFocus={autoFocus}
+            autoComplete={autoComplete}
             disabled={disabled}
             required={required}
             aria-invalid={showError || undefined}
@@ -89,6 +92,7 @@ export const TextInput = ({
             type={type}
             placeholder={placeholder}
             autoFocus={autoFocus}
+            autoComplete={autoComplete}
             disabled={disabled}
             required={required}
             inputMode={digitsOnly ? "numeric" : undefined}

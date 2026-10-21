@@ -12,12 +12,14 @@ import type {
   Companion,
   ExtraCharge,
   Guest,
+  PartyType,
   PaymentMode,
   RatePlan,
   Room,
   RoomType,
   Stay,
 } from "../../../utils/interfaces/Interface";
+import { billForStayRooms, stayRoomCount, stayRoomIds } from "../../../utils/helper/stayRooms";
 
 export interface CheckInPayload {
   guest: {
@@ -29,7 +31,9 @@ export interface CheckInPayload {
     address: string;
   };
   companions: Companion[];
-  roomId: string;
+  partyType: PartyType;
+  guestCount: number;
+  roomIds: string[];
   planId: string;
   checkInAt: string;
   advanceAmount: number;
@@ -79,9 +83,15 @@ const stayApi = hotelApi.injectEndpoints({
               readList<Guest>(DbKeys.GUESTS),
               readList<Stay>(DbKeys.STAYS),
             ]);
-            const room = rooms.find((r) => r.id === p.roomId);
-            if (!room) throw new Error("Room not found");
-            if (room.status !== "AVAILABLE") throw new Error(`Room ${room.number} abhi available nahi hai`);
+            const roomIds = [...new Set(p.roomIds.filter(Boolean))];
+            if (!roomIds.length) throw new Error("Room not found");
+            const selectedRooms = roomIds.map((id) => {
+              const room = rooms.find((r) => r.id === id);
+              if (!room) throw new Error("Room not found");
+              if (room.status !== "AVAILABLE") throw new Error(`Room ${room.number} is not currently available`);
+              return room;
+            });
+            const room = selectedRooms[0];
             const plan = plans.find((x) => x.id === p.planId);
             if (!plan) throw new Error("Rate plan not found");
 
@@ -125,6 +135,13 @@ const stayApi = hotelApi.injectEndpoints({
               ? guests.map((g) => (g.id === savedGuest.id ? savedGuest : g))
               : [...guests, savedGuest];
 
+            const roomNumbers = selectedRooms.map((r) => r.number).join(", ");
+            const roomTypeNames = [
+              ...new Set(
+                selectedRooms.map((r) => types.find((t) => t.id === r.roomTypeId)?.name ?? "-"),
+              ),
+            ].join(", ");
+
             const stay: Stay = {
               id: uid(),
               stayNo: nextStayNo(stays),
@@ -135,9 +152,12 @@ const stayApi = hotelApi.injectEndpoints({
               guestIdNumber: savedGuest.idNumber,
               guestIdImage: savedGuest.idImage,
               companions,
+              partyType: p.partyType,
+              guestCount: Math.max(1, p.guestCount || 1 + companions.length),
               roomId: room.id,
-              roomNumber: room.number,
-              roomTypeName: types.find((t) => t.id === room.roomTypeId)?.name ?? "-",
+              roomIds,
+              roomNumber: roomNumbers,
+              roomTypeName: roomTypeNames,
               plan,
               checkInAt: p.checkInAt,
               expectedCheckOutAt: computeExpectedCheckOut(plan, p.checkInAt),
@@ -158,11 +178,12 @@ const stayApi = hotelApi.injectEndpoints({
               updatedAt: now,
             };
 
+            const occupied = new Set(roomIds);
             await writeList(DbKeys.GUESTS, nextGuests);
             await writeList(DbKeys.STAYS, [...stays, stay]);
             await writeList(
               DbKeys.ROOMS,
-              rooms.map((r) => (r.id === room.id ? { ...r, status: "OCCUPIED", updatedAt: now } : r))
+              rooms.map((r) => (occupied.has(r.id) ? { ...r, status: "OCCUPIED", updatedAt: now } : r))
             );
             return stay;
           })
@@ -202,7 +223,7 @@ const stayApi = hotelApi.injectEndpoints({
             ]);
             const stay = stays.find((s) => s.id === p.id);
             if (!stay) throw new Error("Stay not found");
-            if (stay.status === "COMPLETED") throw new Error("Ye stay pehle hi check-out ho chuki hai");
+            if (stay.status === "COMPLETED") throw new Error("This stay has already been checked out");
 
             // Plan can be switched at checkout (e.g. hourly -> 24 hrs).
             const plan = p.planId ? plans.find((x) => x.id === p.planId) ?? stay.plan : stay.plan;
@@ -211,7 +232,7 @@ const stayApi = hotelApi.injectEndpoints({
               ? computeExpectedCheckOut(plan, stay.checkInAt)
               : stay.expectedCheckOutAt;
 
-            const bill = calculateBill({
+            const singleRoomBill = calculateBill({
               plan,
               checkInAt: stay.checkInAt,
               checkOutAt: p.checkOutAt,
@@ -220,6 +241,7 @@ const stayApi = hotelApi.injectEndpoints({
               discount: p.discount,
               taxPercent: p.taxPercent,
             });
+            const bill = billForStayRooms(singleRoomBill, stayRoomCount(stay));
             const paidAmount = stay.advanceAmount + p.amountReceived;
             const now = new Date().toISOString();
             const updated: Stay = {
@@ -239,12 +261,12 @@ const stayApi = hotelApi.injectEndpoints({
               updatedAt: now,
             };
             await writeList(DbKeys.STAYS, stays.map((s) => (s.id === p.id ? updated : s)));
+            const freeing = new Set(stayRoomIds(stay));
+            const nextStatus = p.autoCleaning ? "CLEANING" : "AVAILABLE";
             await writeList(
               DbKeys.ROOMS,
               rooms.map((r) =>
-                r.id === stay.roomId
-                  ? { ...r, status: p.autoCleaning ? "CLEANING" : "AVAILABLE", updatedAt: now }
-                  : r
+                freeing.has(r.id) ? { ...r, status: nextStatus, updatedAt: now } : r
               )
             );
             return updated;
@@ -287,9 +309,10 @@ const stayApi = hotelApi.injectEndpoints({
             ]);
             const stay = stays.find((s) => s.id === id);
             if (stay?.status === "ACTIVE") {
+              const freeing = new Set(stayRoomIds(stay));
               await writeList(
                 DbKeys.ROOMS,
-                rooms.map((r) => (r.id === stay.roomId ? { ...r, status: "AVAILABLE" } : r))
+                rooms.map((r) => (freeing.has(r.id) ? { ...r, status: "AVAILABLE" } : r))
               );
             }
             await writeList(DbKeys.STAYS, stays.filter((s) => s.id !== id));

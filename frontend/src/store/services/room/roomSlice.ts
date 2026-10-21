@@ -59,8 +59,8 @@ const roomApi = hotelApi.injectEndpoints({
       queryFn: (payload) =>
         run(() =>
           runExclusive(async () => {
-            if (payload.to < payload.from) throw new Error("'To' number 'From' se bada hona chahiye");
-            if (payload.to - payload.from > 199) throw new Error("Ek baar me max 200 rooms add kar sakte ho");
+            if (payload.to < payload.from) throw new Error("'To' room number must be greater than 'From' room number");
+            if (payload.to - payload.from > 199) throw new Error("Cannot add more than 200 rooms at once");
             const rooms = await readList<Room>(DbKeys.ROOMS);
             const existing = new Set(rooms.map((r) => r.number.toLowerCase()));
             const now = new Date().toISOString();
@@ -123,7 +123,7 @@ const roomApi = hotelApi.injectEndpoints({
             const next = rooms.map((r) => {
               if (r.id !== id) return r;
               if (r.status === "OCCUPIED" && status !== "OCCUPIED") {
-                throw new Error("Occupied room ko pehle check-out karo");
+                throw new Error("Please check out the occupied room first");
               }
               return (updated = { ...r, status, updatedAt: new Date().toISOString() });
             });
@@ -141,7 +141,7 @@ const roomApi = hotelApi.injectEndpoints({
             const rooms = await readList<Room>(DbKeys.ROOMS);
             const room = rooms.find((r) => r.id === id);
             if (room?.status === "OCCUPIED") {
-              throw new Error("Occupied room delete nahi ho sakta — pehle check-out karo");
+              throw new Error("Cannot delete an occupied room — please check out first");
             }
             await writeList(DbKeys.ROOMS, rooms.filter((r) => r.id !== id));
             return true;

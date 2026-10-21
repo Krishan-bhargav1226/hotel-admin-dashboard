@@ -1,5 +1,5 @@
 import { Box, TextField, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
-import dayjs from "dayjs";
+import { formatDateTime } from "../../../utils/date/dateUtils";
 import { formatCurrency, formatDuration } from "../../../utils/helper/helper";
 import { PAYMENT_MODES } from "../../../utils/helper/constants";
 import type { BillBreakdown, ExtraCharge, PaymentMode, Stay } from "../../../utils/interfaces/Interface";
@@ -22,7 +22,7 @@ export default function CheckoutBillSummary({ stay, bill, extras, balance, refun
     {stay.advanceAmount > 0 && <Line label="Advance paid" value={`- ${formatCurrency(stay.advanceAmount)}`} />}
     <Line label={refund > 0 ? "Refund to guest" : "Balance to collect"} value={formatCurrency(refund > 0 ? refund : balance)} bold />
     <Box className="mt-3 space-y-2"><TextField size="small" fullWidth type="number" label="Amount received now ₹" value={received ?? String(balance)} onChange={(event) => setReceived(event.target.value)} helperText={due > 0 ? `${formatCurrency(due)} due rahega` : " "} /><ToggleButtonGroup size="small" exclusive value={mode} onChange={(_event, value) => value && setMode(value)} fullWidth>{PAYMENT_MODES.map((paymentMode) => <ToggleButton key={paymentMode.id} value={paymentMode.id}>{paymentMode.name}</ToggleButton>)}</ToggleButtonGroup></Box>
-    <Typography variant="caption" className="mt-2 block text-gray-500">Check-in {dayjs(stay.checkInAt).format("DD MMM, hh:mm A")}</Typography>
+    <Typography variant="caption" className="mt-2 block text-gray-500">Check-in {formatDateTime(stay.checkInAt)}</Typography>
   </Box>;
 }
 

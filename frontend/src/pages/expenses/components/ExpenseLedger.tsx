@@ -1,7 +1,7 @@
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import dayjs from "dayjs";
-import { MdDelete, MdReceiptLong, MdSearch } from "react-icons/md";
+import { Trash2, Receipt, Search } from "lucide-react";
 import SectionBox from "../../../components/ui/container/SectionBox";
 import { formatCurrency } from "../../../utils/helper/helper";
 import type { ExpenseCategory, HotelExpense } from "../../../utils/interfaces/Interface";
@@ -51,7 +51,7 @@ export default function ExpenseLedger({ expensesCount, expenses, categoryMap, fi
             </div>
 
             <div className="flex h-10 w-full items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 sm:max-w-xs">
-              <MdSearch className="text-slate-400" size={16} aria-hidden="true" />
+              <Search className="text-slate-400" size={16} aria-hidden="true" />
               <input
                 type="text"
                 placeholder="Search vendor, item or bill..."
@@ -66,7 +66,7 @@ export default function ExpenseLedger({ expensesCount, expenses, categoryMap, fi
 
         {filteredExpenses.length === 0 ? (
           <Box className="py-12 text-center text-gray-400">
-            <MdReceiptLong size={48} className="mx-auto mb-2 opacity-40" />
+            <Receipt size={48} className="mx-auto mb-2 opacity-40" />
             <Typography variant="body1" fontWeight={600}>No expenses found</Typography>
             <Typography variant="caption">Try adjusting your filters or record a new expense voucher</Typography>
           </Box>
@@ -129,7 +129,7 @@ export default function ExpenseLedger({ expensesCount, expenses, categoryMap, fi
                             className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600 cursor-pointer"
                             onClick={() => onDelete(exp)}
                           >
-                            <MdDelete size={16} aria-hidden="true" />
+                            <Trash2 size={16} aria-hidden="true" />
                           </button>
                         </td>
                       </tr>

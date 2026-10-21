@@ -1,6 +1,6 @@
 import { Box, Button, Chip, Typography } from "@mui/material";
 import dayjs from "dayjs";
-import { MdBuild, MdCheckCircle } from "react-icons/md";
+import { Wrench, CheckCircle2 } from "lucide-react";
 import SectionBox from "../../../components/ui/container/SectionBox";
 import { formatCurrency } from "../../../utils/helper/helper";
 import type { MaintenanceTicket } from "../../../utils/interfaces/Interface";
@@ -16,7 +16,7 @@ export default function MaintenanceTicketsPanel({ tickets, onResolve, onStartWor
     <SectionBox className="bg-white shadow-card rounded-2xl border border-slate-200/90 !p-5">
       <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100"><div><Typography variant="h6" fontWeight={700} className="text-slate-900">Maintenance & Engineering Work Orders</Typography><p className="text-xs text-slate-500 mt-0.5">Active plumbing, electrical, and appliance repair tickets</p></div></div>
       {tickets.length === 0 ? (
-        <Box className="py-12 text-center text-gray-400"><MdBuild size={48} className="mx-auto mb-2 opacity-40" /><Typography variant="body1" fontWeight={600}>No active maintenance tickets</Typography><Typography variant="caption">All hotel room amenities & equipments are functional</Typography></Box>
+        <Box className="py-12 text-center text-gray-400"><Wrench size={48} className="mx-auto mb-2 opacity-40" /><Typography variant="body1" fontWeight={600}>No active maintenance tickets</Typography><Typography variant="caption">All hotel room amenities & equipments are functional</Typography></Box>
       ) : (
         <div className="divide-y divide-gray-100">
           {tickets.map((ticket) => {
@@ -29,7 +29,7 @@ export default function MaintenanceTicketsPanel({ tickets, onResolve, onStartWor
                   <div className="mt-2 flex items-center gap-4 text-xs text-gray-500"><span>Reported by: <strong>{ticket.reportedBy}</strong></span><span>Assigned: <strong>{ticket.assignedTo || "Unassigned"}</strong></span>{ticket.cost ? <span>Cost: <strong>{formatCurrency(ticket.cost)}</strong></span> : null}<span>Logged: {dayjs(ticket.createdAt).format("DD MMM, hh:mm A")}</span></div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {!isResolved && <Button size="small" variant="contained" color="success" startIcon={<MdCheckCircle />} onClick={() => onResolve(ticket)} sx={{ textTransform: "none", fontWeight: 700 }}>Resolve & Clear Room</Button>}
+                  {!isResolved && <Button size="small" variant="contained" color="success" startIcon={<CheckCircle2 size={16} />} onClick={() => onResolve(ticket)} sx={{ textTransform: "none", fontWeight: 700 }}>Resolve & Clear Room</Button>}
                   {ticket.status === "OPEN" && <Button size="small" variant="outlined" color="primary" onClick={() => onStartWork(ticket)} sx={{ textTransform: "none" }}>Start Work</Button>}
                 </div>
               </div>

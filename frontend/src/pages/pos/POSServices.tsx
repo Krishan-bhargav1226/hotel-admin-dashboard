@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { MdAdd, MdRestaurant, MdRoomService } from "react-icons/md";
+import { Plus, UtensilsCrossed, ConciergeBell } from "lucide-react";
 import MainContainer from "../../components/ui/container/MainContainer";
 import PageTitle from "../../components/ui/container/PageTitle";
 import { Button as UiButton } from "../../components/ui/button";
@@ -8,6 +8,8 @@ import OrderDialog from "./components/OrderDialog";
 import MenuItemDialog from "./components/MenuItemDialog";
 import ServiceOrdersPanel from "./components/ServiceOrdersPanel";
 import MenuCatalogPanel from "./components/MenuCatalogPanel";
+import { ShowConfirmModal } from "../../hooks/useShowConfirmModal";
+import { useGetSettingsQuery } from "../../store/services/settings/settingsSlice";
 import {
   useCreateServiceOrderMutation,
   useDeleteMenuItemMutation,
@@ -24,6 +26,7 @@ export default function POSServices() {
   const { data: menuItems = [] } = useGetMenuItemsQuery();
   const { data: orders = [] } = useGetServiceOrdersQuery();
   const { data: stays = [] } = useGetStaysQuery();
+  const { data: settings } = useGetSettingsQuery();
   const [createOrder, { isLoading: isOrdering }] = useCreateServiceOrderMutation();
   const [updateOrderStatus] = useUpdateServiceOrderStatusMutation();
   const [saveMenuItem, { isLoading: isSavingMenu }] = useSaveMenuItemMutation();
@@ -49,7 +52,8 @@ export default function POSServices() {
       return { menuItemId: id, name: item?.name || "Item", price: item?.price || 0, quantity };
     }), [orderCart, menuItems]);
   const cartSubtotal = cartItemsList.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const cartTax = Math.round(cartSubtotal * 0.05);
+  const taxRate = (settings?.taxPercent != null ? settings.taxPercent : 5) / 100;
+  const cartTax = Math.round(cartSubtotal * taxRate);
   const cartTotal = cartSubtotal + cartTax;
 
   const updateCartQty = (id: string, delta: number) => setOrderCart((current) => {
@@ -67,7 +71,7 @@ export default function POSServices() {
     if (!selectedRoomId) return toast.error("Please select a destination room");
     if (!cartItemsList.length) return toast.error("Cart is empty! Please add at least 1 item");
     try {
-      const targetStay = activeStays.find((stay) => stay.roomId === selectedRoomId);
+      const targetStay = activeStays.find((stay) => (stay.roomIds?.length ? stay.roomIds : [stay.roomId]).includes(selectedRoomId));
       await createOrder({ roomId: selectedRoomId, stayId: targetStay?.id, items: cartItemsList, billedToRoom, paymentMode: billedToRoom ? undefined : directPaymentMode, notes: orderNotes }).unwrap();
       toast.success(billedToRoom ? "Order placed & charged to Guest Room Folio!" : "Order placed & direct payment received!");
       setOpenOrderModal(false);
@@ -92,9 +96,19 @@ export default function POSServices() {
   };
 
   const handleDeleteMenuItem = async (item: IMenuItem) => {
-    if (!confirm(`Remove "${item.name}" from menu?`)) return;
-    await deleteMenuItem(item.id);
-    toast.success("Item removed");
+    const ok = await ShowConfirmModal({
+      title: `Remove "${item.name}" from menu?`,
+      text: "This item will no longer be available for new guest orders.",
+      confirmButtonText: "Remove item",
+      buttonColor: "red",
+    });
+    if (!ok) return;
+    try {
+      await deleteMenuItem(item.id).unwrap();
+      toast.success("Item removed");
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
   };
 
   const openNewOrder = () => {
@@ -112,10 +126,10 @@ export default function POSServices() {
       <PageTitle title="Room service" subtitle="Manage open guest orders and your service menu." actions={
         <div className="flex flex-wrap items-center gap-2">
           <div role="tablist" aria-label="Room service views" className="inline-flex max-w-full gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
-            <TabButton id="orders-tab" panel="orders-panel" active={activeTab === 0} onClick={() => setActiveTab(0)} icon={<MdRoomService size={16} />} label={`Orders (${orders.filter((order) => order.status !== "DELIVERED").length})`} />
-            <TabButton id="menu-tab" panel="menu-panel" active={activeTab === 1} onClick={() => setActiveTab(1)} icon={<MdRestaurant size={16} />} label={`Menu (${menuItems.length})`} />
+            <TabButton id="orders-tab" panel="orders-panel" active={activeTab === 0} onClick={() => setActiveTab(0)} icon={<ConciergeBell size={16} />} label={`Orders (${orders.filter((order) => order.status !== "DELIVERED").length})`} />
+            <TabButton id="menu-tab" panel="menu-panel" active={activeTab === 1} onClick={() => setActiveTab(1)} icon={<UtensilsCrossed size={16} />} label={`Menu (${menuItems.length})`} />
           </div>
-          <UiButton size="sm" onClick={activeTab === 0 ? openNewOrder : openNewMenuItem}><MdAdd size={16} />{activeTab === 0 ? "New order" : "Add menu item"}</UiButton>
+          <UiButton size="sm" onClick={activeTab === 0 ? openNewOrder : openNewMenuItem}><Plus size={16} />{activeTab === 0 ? "New order" : "Add menu item"}</UiButton>
         </div>
       } />
       {activeTab === 0 ? <ServiceOrdersPanel orders={orders} onCreateOrder={openNewOrder} onMarkDelivered={handleMarkDelivered} /> : <MenuCatalogPanel items={menuItems} filter={menuFilterCat} setFilter={setMenuFilterCat} search={menuSearchQuery} setSearch={setMenuSearchQuery} onEdit={(item) => { setEditingItem(item); setOpenItemModal(true); }} onDelete={handleDeleteMenuItem} />}

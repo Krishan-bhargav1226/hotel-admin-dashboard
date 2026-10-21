@@ -65,7 +65,7 @@ export default function CheckInDialog({
               <MenuItem value="AADHAAR">Aadhaar Card</MenuItem><MenuItem value="PASSPORT">Passport</MenuItem><MenuItem value="DRIVING_LICENSE">Driving License</MenuItem><MenuItem value="VOTER_ID">Voter ID</MenuItem>
             </Select>
           </FormControl>
-          <TextField label="ID Document Number" fullWidth size="small" value={idNumber} onChange={(event) => setIdNumber(event.target.value)} />
+          <TextField label="ID Document Number *" required fullWidth size="small" value={idNumber} onChange={(event) => setIdNumber(event.target.value)} />
         </div>
         <TextField label="Residential City / Address" fullWidth size="small" value={address} onChange={(event) => setAddress(event.target.value)} />
         <DialogActions className="!px-0 !pt-2">

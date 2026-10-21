@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { MdImage, MdZoomIn } from "react-icons/md";
+import { Image as ImageIcon, ZoomIn } from "lucide-react";
 import RoomGalleryModal from "./RoomGalleryModal";
 import type { Room, RoomType, RoomCategory } from "../../../utils/interfaces/Interface";
 import { getRoomMeta, getRoomPhoto } from "../../../utils/helper/roomImages";
@@ -89,14 +89,14 @@ export const RoomPhoto: React.FC<RoomPhotoProps> = ({
         {/* Shimmer Placeholder while loading */}
         {!isLoaded && !hasError && (
           <div className="absolute inset-0 bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 animate-pulse flex items-center justify-center">
-            <MdImage className="text-slate-300 text-2xl" />
+            <ImageIcon className="text-slate-300 size-6" />
           </div>
         )}
 
         {/* Fallback if image fails to load */}
         {hasError ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100 p-2 text-center text-slate-400">
-            <MdImage className="text-3xl text-slate-300 mb-1" />
+            <ImageIcon className="size-8 text-slate-300 mb-1" />
             <span className="text-[10px] font-medium text-slate-500">{title}</span>
           </div>
         ) : (
@@ -127,7 +127,7 @@ export const RoomPhoto: React.FC<RoomPhotoProps> = ({
         {/* Zoom Hint on Hover */}
         {enableZoom && (
           <div className="absolute top-2 right-2 rounded-full bg-black/40 p-1.5 text-white backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-            <MdZoomIn size={14} />
+            <ZoomIn className="size-3.5" />
           </div>
         )}
 

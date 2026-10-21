@@ -18,13 +18,6 @@ dist-ssr
 .env.*
 !.env.example
 
-# .NET
-**/bin/
-**/obj/
-**/.vs/
-*.user
-*.suo
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

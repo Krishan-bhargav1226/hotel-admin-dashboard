@@ -5,6 +5,8 @@ import UiDialog from "../../../components/ui/models/UiDialog";
 import type { ShiftType, StaffMember, StaffRole } from "../../../utils/interfaces/Interface";
 
 const ROLES: Record<StaffRole, string> = {
+  SUPER_ADMIN: "Super Admin (Chain-wide)",
+  ADMIN: "Property Admin",
   MANAGER: "General Manager",
   RECEPTIONIST: "Front Desk Receptionist",
   HOUSEKEEPING: "Housekeeping Executive",

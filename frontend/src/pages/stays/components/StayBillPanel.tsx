@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import { Box, Button, TextField, Typography } from "@mui/material";
-import { MdDelete } from "react-icons/md";
+import { Trash2 } from "lucide-react";
 import BoxTitle from "../../../components/ui/container/BoxTitle";
 import UISubmitButton from "../../../components/ui/buttons/UISubmitButton";
 import { formatCurrency } from "../../../utils/helper/helper";
@@ -28,7 +28,7 @@ export default function StayBillPanel(props: StayBillPanelProps) {
       {bill && <Box className="mt-2 rounded-lg border border-gray-200 bg-white p-3.5 text-sm shadow-xs">
         <BillRow label={bill.baseLabel} value={formatCurrency(bill.baseAmount)} />
         {bill.overtimeHours > 0 && <BillRow label={`Overtime · ${bill.overtimeHours} hrs`} value={formatCurrency(bill.overtimeAmount)} />}
-        {stay.extraCharges.map((charge) => <BillRow key={charge.id} label={charge.label} value={<span className="flex items-center gap-2">{formatCurrency(charge.amount)}{active && <button type="button" className="text-red-500 hover:text-red-700" onClick={() => onRemoveExtra(charge.id)} aria-label={`Remove ${charge.label}`}><MdDelete /></button>}</span>} />)}
+        {stay.extraCharges.map((charge) => <BillRow key={charge.id} label={charge.label} value={<span className="flex items-center gap-2">{formatCurrency(charge.amount)}{active && <button type="button" className="text-red-500 hover:text-red-700" onClick={() => onRemoveExtra(charge.id)} aria-label={`Remove ${charge.label}`}><Trash2 size={14} /></button>}</span>} />)}
         {bill.discount > 0 && <BillRow label="Promotional Discount" value={`- ${formatCurrency(bill.discount)}`} />}
         {bill.taxAmount > 0 && <BillRow label={`GST / Tax (${bill.taxPercent}%)`} value={formatCurrency(bill.taxAmount)} />}
         <hr className="my-2.5 border-gray-200" />

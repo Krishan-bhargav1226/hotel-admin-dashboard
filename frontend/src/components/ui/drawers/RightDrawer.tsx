@@ -1,7 +1,7 @@
 import React from "react";
 import Drawer from "@mui/material/Drawer";
 import { Box, IconButton, Typography } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
+import { X } from "lucide-react";
 
 interface RightDrawerProps {
   open: boolean;
@@ -32,8 +32,8 @@ const RightDrawer: React.FC<RightDrawerProps> = ({
       >
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
           {title && <Typography variant="h6" fontWeight={700}>{title}</Typography>}
-          <IconButton onClick={onClose}>
-            <CloseIcon />
+          <IconButton onClick={onClose} aria-label="Close drawer">
+            <X className="size-5" />
           </IconButton>
         </Box>
         <Box flex={1} overflow="auto" pt={1}>

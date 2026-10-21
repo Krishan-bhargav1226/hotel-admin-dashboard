@@ -1,6 +1,6 @@
 import type { Dispatch, FormEvent, SetStateAction } from "react";
 import { Button, DialogActions, FormControl, InputLabel, MenuItem, Select, TextField } from "@mui/material";
-import { MdCheckCircle, MdKingBed, MdPeople } from "react-icons/md";
+import { CheckCircle2, BedDouble, Users } from "lucide-react";
 import UiDialog from "../../../components/ui/models/UiDialog";
 import UISubmitButton from "../../../components/ui/buttons/UISubmitButton";
 import { formatCurrency } from "../../../utils/helper/helper";
@@ -96,12 +96,12 @@ export default function ReservationFormDialog({
                     <img src={getRoomPhoto(null, type)} alt={type.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
                     <span className={`absolute top-2 left-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold shadow-xs backdrop-blur-md ${meta.badgeColor}`}>{meta.badge}</span>
-                    {isSelected && <span className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-brand-700 text-white shadow-md"><MdCheckCircle size={16} className="text-emerald-400" /></span>}
+                    {isSelected && <span className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-brand-700 text-white shadow-md"><CheckCircle2 size={16} className="text-emerald-400" /></span>}
                     <span className="absolute bottom-1.5 right-2 font-mono text-xs font-bold text-white drop-shadow-md">{formatCurrency(meta.basePrice)} / night</span>
                   </div>
                   <div className="p-2.5">
                     <h4 className="text-xs font-bold text-slate-900 truncate">{type.name}</h4><p className="text-[10px] text-slate-500 line-clamp-1 mt-0.5">{meta.guestTypeLabel}</p>
-                    <div className="mt-1.5 flex items-center justify-between text-[10px] text-slate-600 font-medium"><span className="inline-flex items-center gap-1"><MdPeople size={11} className="text-slate-400" /><span>Max {meta.maxGuests}</span></span><span className="inline-flex items-center gap-1 truncate max-w-[110px]"><MdKingBed size={11} className="text-slate-400" /><span>{meta.bedConfig}</span></span></div>
+                    <div className="mt-1.5 flex items-center justify-between text-[10px] text-slate-600 font-medium"><span className="inline-flex items-center gap-1"><Users size={11} className="text-slate-400" /><span>Max {meta.maxGuests}</span></span><span className="inline-flex items-center gap-1 truncate max-w-[110px]"><BedDouble size={11} className="text-slate-400" /><span>{meta.bedConfig}</span></span></div>
                   </div>
                 </div>
               );

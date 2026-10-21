@@ -8,7 +8,7 @@ export const formatDate = (dateString: string): string =>
 export const formatFullDate = (dateString?: string | null): string => {
   if (!dateString) return "-";
   const d = dayjs(dateString);
-  return d.isValid() ? d.format("DD MMM YYYY") : "N/A";
+  return d.isValid() ? d.format("DD/MM/YYYY") : "N/A";
 };
 
 // "02:30 PM"
@@ -22,7 +22,7 @@ export const formatTime = (dateString?: string | null): string => {
 export const formatDateTime = (dateString?: string | null): string => {
   if (!dateString) return "-";
   const d = dayjs(dateString);
-  return d.isValid() ? d.format("DD MMM YYYY, hh:mm A") : "N/A";
+  return d.isValid() ? d.format("DD/MM/YYYY, hh:mm A") : "N/A";
 };
 
 /** ISO -> value for <input type="datetime-local"> */

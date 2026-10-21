@@ -3,16 +3,36 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
+  <link rel="apple-touch-icon" href="%BASE_URL%favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#1d2923" />
+  <meta name="robots" content="index, follow" />
+
+  <!-- Preconnect to Google Fonts for performance -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <meta name="description" content="Front desk console for rooms, stays, reservations, housekeeping, and hotel operations." />
-  <title>Hotel Admin Dashboard</title>
+
+  <title>Grand Horizon Hotels & Resorts | Enterprise PMS & Admin Dashboard</title>
+  <meta name="description" content="Enterprise Hotel Management System (PMS) for front desk express check-in, real-time housekeeping, POS billing, room inventory, and multi-hotel chain administration." />
+  <meta name="keywords" content="hotel management system, hotel pms, hotel admin dashboard, front desk checkin, housekeeping, room inventory, grand horizon" />
+
+  <!-- Open Graph / Social Meta -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Grand Horizon Hotels & Resorts" />
+  <meta property="og:title" content="Grand Horizon Hotels & Resorts | Enterprise PMS" />
+  <meta property="og:description" content="Enterprise Hotel Management System & Admin Dashboard for multi-hotel chain administration, room inventory, and front desk operations." />
+  <meta property="og:image" content="%BASE_URL%favicon.svg" />
 </head>
 
 <body>
+  <noscript>
+    <div style="font-family: sans-serif; padding: 2rem; text-align: center; background: #0A110D; color: #FFF; min-height: 100vh;">
+      <h2>JavaScript Required</h2>
+      <p>Please enable JavaScript in your browser to access the Grand Horizon Hotel PMS workspace.</p>
+    </div>
+  </noscript>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
 </body>

@@ -1,6 +1,6 @@
 import { Box, Button, Chip, Typography } from "@mui/material";
 import dayjs from "dayjs";
-import { MdCalendarMonth, MdCheckCircle, MdLogin } from "react-icons/md";
+import { Calendar, CheckCircle2, LogIn } from "lucide-react";
 import RoomPhoto from "../../../components/ui/room/RoomPhoto";
 import { formatCurrency } from "../../../utils/helper/helper";
 import type { Reservation, RoomType } from "../../../utils/interfaces/Interface";
@@ -17,7 +17,7 @@ export default function ReservationBookingTable({ reservations, roomTypes, onChe
   if (!reservations.length) {
     return (
       <Box className="py-12 text-center text-gray-400">
-        <MdCalendarMonth size={48} className="mx-auto mb-2 opacity-40" />
+        <Calendar size={48} className="mx-auto mb-2 opacity-40" />
         <Typography variant="body1" fontWeight={600}>No reservations found</Typography>
         <Typography variant="caption">Create an advance booking for an upcoming guest</Typography>
       </Box>
@@ -48,10 +48,10 @@ export default function ReservationBookingTable({ reservations, roomTypes, onChe
                   <td data-label="Actions" className="px-4 py-3 text-right">
                     <Box className="flex items-center justify-end gap-1.5">
                       {reservation.status === "CONFIRMED" && <>
-                        <Button size="small" variant="contained" color="success" startIcon={<MdLogin size={15} />} onClick={() => onCheckIn(reservation)} sx={{ textTransform: "none", fontWeight: 700 }}>Check In</Button>
+                        <Button size="small" variant="contained" color="success" startIcon={<LogIn size={15} />} onClick={() => onCheckIn(reservation)} sx={{ textTransform: "none", fontWeight: 700 }}>Check In</Button>
                         <Button size="small" variant="outlined" color="error" onClick={() => onCancel(reservation)} sx={{ minWidth: 32, textTransform: "none" }}>Cancel</Button>
                       </>}
-                      {reservation.status === "CHECKED_IN" && <Chip size="small" icon={<MdCheckCircle />} label="In-House Stay" color="success" variant="outlined" />}
+                      {reservation.status === "CHECKED_IN" && <Chip size="small" icon={<CheckCircle2 size={14} />} label="In-House Stay" color="success" variant="outlined" />}
                     </Box>
                   </td>
                 </tr>

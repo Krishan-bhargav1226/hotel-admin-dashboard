@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
-import { MdCleaningServices, MdDelete, MdEdit, MdFastfood, MdLocalCafe, MdLocalDining, MdLocalTaxi, MdRestaurant } from "react-icons/md";
+import { Edit3, Trash2, UtensilsCrossed, Coffee, Utensils, Pizza, Shirt, Sparkles } from "lucide-react";
 import { formatCurrency } from "../../../utils/helper/helper";
 import type { MenuCategory, MenuItem } from "../../../utils/interfaces/Interface";
 
@@ -47,7 +47,7 @@ function MenuItemCard({ item, onEdit, onDelete }: { item: MenuItem; onEdit: () =
       </div>
       <div className="mt-4 flex items-center justify-between border-t border-slate-200/70 pt-2.5">
         <span className={`text-[10px] font-semibold ${item.isAvailable ? "text-emerald-700" : "text-rose-500"}`}>{item.isAvailable ? "● In Stock" : "○ Sold Out"}</span>
-        <div className="flex items-center gap-1"><button type="button" onClick={onEdit} className="cursor-pointer rounded p-1 text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-900" title="Edit item"><MdEdit size={15} /></button><button type="button" onClick={onDelete} className="cursor-pointer rounded p-1 text-slate-400 transition-all hover:bg-rose-50 hover:text-rose-600" title="Delete item"><MdDelete size={15} /></button></div>
+        <div className="flex items-center gap-1"><button type="button" onClick={onEdit} className="cursor-pointer rounded p-1 text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-900" title="Edit item"><Edit3 size={15} /></button><button type="button" onClick={onDelete} className="cursor-pointer rounded p-1 text-slate-400 transition-all hover:bg-rose-50 hover:text-rose-600" title="Delete item"><Trash2 size={15} /></button></div>
       </div>
     </article>
   );
@@ -55,11 +55,11 @@ function MenuItemCard({ item, onEdit, onDelete }: { item: MenuItem; onEdit: () =
 
 function categoryIcon(category: MenuCategory) {
   switch (category) {
-    case "BREAKFAST": return <MdLocalDining size={14} className="text-amber-600" />;
-    case "MAIN_COURSE": return <MdRestaurant size={14} className="text-rose-600" />;
-    case "SNACKS": return <MdFastfood size={14} className="text-orange-600" />;
-    case "BEVERAGES": return <MdLocalCafe size={14} className="text-sky-600" />;
-    case "LAUNDRY": return <MdCleaningServices size={14} className="text-brand-600" />;
-    case "EXTRA_SERVICE": return <MdLocalTaxi size={14} className="text-emerald-600" />;
+    case "BREAKFAST": return <Utensils size={14} className="text-amber-600" />;
+    case "MAIN_COURSE": return <UtensilsCrossed size={14} className="text-rose-600" />;
+    case "SNACKS": return <Pizza size={14} className="text-orange-600" />;
+    case "BEVERAGES": return <Coffee size={14} className="text-sky-600" />;
+    case "LAUNDRY": return <Shirt size={14} className="text-brand-600" />;
+    case "EXTRA_SERVICE": return <Sparkles size={14} className="text-emerald-600" />;
   }
 }

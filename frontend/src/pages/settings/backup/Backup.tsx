@@ -10,7 +10,6 @@ import {
 } from "../../../store/services/settings/settingsSlice";
 import { ShowConfirmModal } from "../../../hooks/useShowConfirmModal";
 import { getErrorMessage } from "../../../utils/helper/helper";
-import { isBackendStorageEnabled } from "../../../utils/db/localDb";
 
 const Backup = () => {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -35,7 +34,7 @@ const Backup = () => {
       const json = JSON.parse(await file.text());
       await importBackup(json).unwrap();
       toast.success("Backup restored");
-    } catch (e) { toast.error(e instanceof SyntaxError ? "Ye valid backup file nahi hai" : getErrorMessage(e)); }
+    } catch (e) { toast.error(e instanceof SyntaxError ? "This is not a valid backup file" : getErrorMessage(e)); }
   };
 
   const handleDemo = async () => {
@@ -55,7 +54,7 @@ const Backup = () => {
   };
 
   const handleClear = async () => {
-    const ok = await ShowConfirmModal({ title: "Delete ALL data?", text: "Rooms, guests, ID photos, stays — sab hat jayega. Pehle backup le lo.", confirmButtonText: "Delete everything" });
+    const ok = await ShowConfirmModal({ title: "Delete ALL data?", text: "Rooms, guests, ID photos, stays — everything will be erased. Take a backup first.", confirmButtonText: "Delete everything" });
     if (!ok) return;
     try { await clearAll().unwrap(); toast.success("All data cleared"); } catch (e) { toast.error(getErrorMessage(e)); }
   };
@@ -65,9 +64,7 @@ const Backup = () => {
       <SectionBox>
         <Typography variant="h6" fontWeight={700}>Backup & Export</Typography>
         <Typography variant="body2" className="!mb-3 text-gray-600">
-          {isBackendStorageEnabled
-            ? "Data is connected to the Hotel Admin backend. Export a backup before restoring or moving data (ID photos are included)."
-            : "Data is saved in this browser on this computer. Download a backup before clearing browser data or moving to another computer (ID photos are included)."}
+          Data stays in this browser on this computer. Download a backup before clearing browser data or moving to another computer; ID photos are included.
         </Typography>
         <Box className="flex flex-wrap gap-2">
           <UISubmitButton type="button" text="Download backup" loading={exporting} onClick={handleExport} />

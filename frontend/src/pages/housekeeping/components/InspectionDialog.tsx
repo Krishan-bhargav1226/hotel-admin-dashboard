@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import { Button, DialogActions, TextField } from "@mui/material";
-import { MdBathtub, MdBed, MdCheckCircle, MdLocalBar, MdLocalDrink, MdVpnKey, MdTv } from "react-icons/md";
+import { BedDouble, Bath, Sparkles, Tv, Coffee, KeyRound, CheckCircle2 } from "lucide-react";
 import UiDialog from "../../../components/ui/models/UiDialog";
 import UISubmitButton from "../../../components/ui/buttons/UISubmitButton";
 import type { HousekeepingTask } from "../../../utils/interfaces/Interface";
@@ -15,12 +15,12 @@ export interface InspectionChecklist {
 }
 
 const checklistItems = [
-  { key: "linen", icon: <MdBed className="text-brand-600" size={15} />, title: "1. Fresh Bedding & Pillowcases", description: "Clean crisp sheets, pillow covers & duvet fitted smoothly without creases." },
-  { key: "bathroom", icon: <MdBathtub className="text-sky-600" size={15} />, title: "2. Bathroom Sanitization & Towels", description: "Toilet, glass shower & vanity disinfected; fresh bath & hand towels hung." },
-  { key: "toiletries", icon: <MdLocalBar className="text-amber-600" size={15} />, title: "3. Toiletries & Guest Amenities", description: "Soap, shampoo, dental kit & fresh tissue rolls replenished for incoming guests." },
-  { key: "electronics", icon: <MdTv className="text-rose-600" size={15} />, title: "4. Electronic & AC Remote Disinfection", description: "AC temperature verified; TV remote & phone wiped with alcohol sanitizer." },
-  { key: "refreshments", icon: <MdLocalDrink className="text-emerald-600" size={15} />, title: "5. Mineral Water & Tea Station", description: "2x complimentary packaged mineral water & fresh tea/coffee sachets replenished." },
-  { key: "locks", icon: <MdVpnKey className="text-purple-600" size={15} />, title: "6. Keycard Lock & Electronic Safe Zeroed", description: "Door reader responsive, safe unlocked and open for new guest configuration." },
+  { key: "linen", icon: <BedDouble className="text-brand-600" size={15} />, title: "1. Fresh Bedding & Pillowcases", description: "Clean crisp sheets, pillow covers & duvet fitted smoothly without creases." },
+  { key: "bathroom", icon: <Bath className="text-sky-600" size={15} />, title: "2. Bathroom Sanitization & Towels", description: "Toilet, glass shower & vanity disinfected; fresh bath & hand towels hung." },
+  { key: "toiletries", icon: <Sparkles className="text-amber-600" size={15} />, title: "3. Toiletries & Guest Amenities", description: "Soap, shampoo, dental kit & fresh tissue rolls replenished for incoming guests." },
+  { key: "electronics", icon: <Tv className="text-rose-600" size={15} />, title: "4. Electronic & AC Remote Disinfection", description: "AC temperature verified; TV remote & phone wiped with alcohol sanitizer." },
+  { key: "refreshments", icon: <Coffee className="text-emerald-600" size={15} />, title: "5. Mineral Water & Tea Station", description: "2x complimentary packaged mineral water & fresh tea/coffee sachets replenished." },
+  { key: "locks", icon: <KeyRound className="text-purple-600" size={15} />, title: "6. Keycard Lock & Electronic Safe Zeroed", description: "Door reader responsive, safe unlocked and open for new guest configuration." },
 ] as const;
 
 interface InspectionDialogProps {
@@ -60,7 +60,7 @@ export default function InspectionDialog({ task, checklist, setChecklist, inspec
         <TextField label="Supervisor Notes / Observations (Optional)" fullWidth size="small" multiline rows={2} placeholder="e.g. Room spotless, fragrance spray applied" value={inspectorNotes} onChange={(event) => setInspectorNotes(event.target.value)} />
         <DialogActions className="!px-0 !pt-2">
           <Button onClick={onClose} color="inherit">Cancel</Button>
-          <UISubmitButton type="button" color="success" text="Certify Clean & Make Available" startIcon={<MdCheckCircle size={18} />} onClick={onConfirm} />
+          <UISubmitButton type="button" color="success" text="Certify Clean & Make Available" startIcon={<CheckCircle2 size={18} />} onClick={onConfirm} />
         </DialogActions>
       </div>
     </UiDialog>

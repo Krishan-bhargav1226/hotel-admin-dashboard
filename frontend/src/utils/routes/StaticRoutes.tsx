@@ -16,6 +16,9 @@ const Housekeeping = lazy(() => import("../../pages/housekeeping/Housekeeping"))
 const POSServices = lazy(() => import("../../pages/pos/POSServices"));
 const StaffShifts = lazy(() => import("../../pages/staff/StaffShifts"));
 const Expenses = lazy(() => import("../../pages/expenses/Expenses"));
+const NightAudit = lazy(() => import("../../pages/night-audit/NightAudit"));
+const LostFound = lazy(() => import("../../pages/lost-found/LostFound"));
+const ChainPortfolio = lazy(() => import("../../pages/chain-portfolio/ChainPortfolio"));
 
 export interface StaticRouteType {
   path: string;
@@ -37,10 +40,13 @@ export const StaticRoutes: StaticRouteType[] = [
   { path: AppEndPoints.ROOM_LIST, element: renderPage(Rooms) },
   { path: AppEndPoints.HOUSEKEEPING, element: renderPage(Housekeeping) },
   { path: AppEndPoints.POS_SERVICES, element: renderPage(POSServices) },
+  { path: AppEndPoints.LOST_FOUND, element: renderPage(LostFound) },
   { path: AppEndPoints.EXPENSES, element: renderPage(Expenses) },
   { path: AppEndPoints.STAFF_SHIFTS, element: renderPage(StaffShifts) },
+  { path: AppEndPoints.NIGHT_AUDIT, element: renderPage(NightAudit) },
   { path: AppEndPoints.GUEST_LIST, element: renderPage(Guests) },
   { path: AppEndPoints.GUEST_DETAILS, element: renderPage(GuestDetails) },
   { path: AppEndPoints.REPORTS, element: renderPage(Reports) },
   { path: AppEndPoints.SETTINGS, element: renderPage(Setting) },
+  { path: AppEndPoints.CHAIN_PORTFOLIO, element: renderPage(ChainPortfolio) },
 ];

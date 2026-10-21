@@ -4,28 +4,30 @@
 
 :root {
   color-scheme: light;
-  --background: #f4f5f1;
-  --foreground: #202923;
+  --background: #f8f7f6;
+  --foreground: #24211f;
   --card: #ffffff;
-  --surface-soft: #f7f8f5;
-  --surface-hover: #eef2ed;
-  --border: #e2e7e0;
-  --primary: #356b4f;
-  --muted: #66746b;
-  --focus: rgba(53, 107, 79, 0.32);
+  --surface-soft: #fcfaf9;
+  --surface-hover: #f5f1ef;
+  --border: #eae6e3;
+  --primary: #e97252;
+  --primary-strong: #dc6042;
+  --muted: #76716d;
+  --focus: rgba(233, 114, 82, 0.34);
 }
 
 .dark {
   color-scheme: dark;
-  --background: #111713;
-  --foreground: #edf3ee;
-  --card: #19221c;
-  --surface-soft: #1d2821;
-  --surface-hover: #243027;
-  --border: #313d34;
-  --primary: #9ac9aa;
-  --muted: #a0aea3;
-  --focus: rgba(154, 201, 170, 0.36);
+  --background: #151413;
+  --foreground: #f1eeec;
+  --card: #201e1c;
+  --surface-soft: #25211f;
+  --surface-hover: #2b2623;
+  --border: #383330;
+  --primary: #f18b6d;
+  --primary-strong: #f18b6d;
+  --muted: #b5aeaa;
+  --focus: rgba(241, 139, 109, 0.38);
 }
 
 html {
@@ -46,7 +48,7 @@ body {
 
 ::selection {
   color: #ffffff;
-  background: #356b4f;
+  background: #e97252;
 }
 
 * {
@@ -77,7 +79,7 @@ textarea {
   top: -3rem;
   z-index: 60;
   border-radius: 0.5rem;
-  background: #356b4f;
+  background: #dc6042;
   color: white;
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
@@ -195,14 +197,14 @@ textarea {
 .dark .theme-root .text-slate-600,
 .dark .theme-root .text-gray-700,
 .dark .theme-root .text-gray-600 {
-  color: #d5deee !important;
+  color: #ded8d4 !important;
 }
 
 .dark .theme-root .text-slate-500,
 .dark .theme-root .text-slate-400,
 .dark .theme-root .text-gray-500,
 .dark .theme-root .text-gray-400 {
-  color: #a8b3c7 !important;
+  color: #b9b0ab !important;
 }
 
 .dark .theme-root .border-slate-200,
@@ -224,13 +226,13 @@ textarea {
 }
 
 .dark .theme-root .bg-brand-50 {
-  background-color: rgba(85, 145, 104, 0.2) !important;
+  background-color: rgba(233, 114, 82, 0.16) !important;
 }
 
 .dark .theme-root .text-brand-800,
 .dark .theme-root .text-brand-700,
 .dark .theme-root .text-brand-600 {
-  color: #b6dec1 !important;
+  color: #ffc5b2 !important;
 }
 
 @media print {

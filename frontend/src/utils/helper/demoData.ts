@@ -111,6 +111,20 @@ export const buildDemoData = () => {
       taxPercent: 12,
     });
 
+    const companions =
+      Math.random() > 0.4
+        ? [
+            {
+              name: pick(NAMES),
+              idType: "AADHAAR",
+              idNumber: "123412341234",
+              idImage: "",
+            },
+          ]
+        : [];
+    const guestCount = 1 + companions.length;
+    const partyType = guestCount >= 3 ? "FAMILY" : guestCount === 2 ? "COUPLE" : "SOLO";
+
     stays.push({
       id: uid(),
       stayNo: `ST-${String(stays.length + 1).padStart(4, "0")}`,
@@ -120,18 +134,11 @@ export const buildDemoData = () => {
       guestIdType: guest.idType,
       guestIdNumber: guest.idNumber,
       guestIdImage: "",
-      companions:
-        Math.random() > 0.4
-          ? [
-              {
-                name: pick(NAMES),
-                idType: "AADHAAR",
-                idNumber: "123412341234",
-                idImage: "",
-              },
-            ]
-          : [],
+      companions,
+      partyType,
+      guestCount,
       roomId: room.id,
+      roomIds: [room.id],
       roomNumber: room.number,
       roomTypeName: types.find((t) => t.id === room.roomTypeId)?.name ?? "-",
       plan,

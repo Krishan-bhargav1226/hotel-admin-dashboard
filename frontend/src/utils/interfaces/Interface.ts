@@ -2,6 +2,7 @@ export type RoomStatus = "AVAILABLE" | "OCCUPIED" | "CLEANING" | "MAINTENANCE";
 export type PlanKind = "HOURLY" | "FIXED" | "TILL_TIME";
 export type PaymentMode = "CASH" | "UPI" | "CARD";
 export type StayStatus = "ACTIVE" | "COMPLETED";
+export type PartyType = "SOLO" | "COUPLE" | "FAMILY";
 
 export interface AppError {
   message: string;
@@ -44,6 +45,8 @@ export interface Room {
   basePrice?: number;
   amenities?: string[];
   badge?: string;
+  propertyId?: string;
+  propertyName?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -136,7 +139,14 @@ export interface Stay {
   guestIdNumber: string;
   guestIdImage: string;
   companions: Companion[];
+  /** Solo / couple / family — set at check-in. Older stays may omit this. */
+  partyType?: PartyType;
+  /** Total people in the party (primary + companions + unnamed). */
+  guestCount?: number;
+  /** Primary room (first of roomIds). Kept for older readers. */
   roomId: string;
+  /** Every room occupied by this stay. Older stays may omit this. */
+  roomIds?: string[];
   roomNumber: string;
   roomTypeName: string;
   /** Plan snapshot, so later rate changes never alter old bills. */
@@ -161,18 +171,39 @@ export interface Stay {
 }
 
 export interface HotelSettings {
+  hotelId?: string;
   hotelName: string;
+  chainName?: string;
+  brandTier?: string;
+  tagline?: string;
   address: string;
+  city?: string;
+  stateCode?: string;
   phone: string;
   email?: string;
   website?: string;
   gstin: string;
+  cin?: string;
+  fssai?: string;
   upiId?: string;
   taxPercent: number;
+  cgstPercent?: number;
+  sgstPercent?: number;
+  sacCodeAccommodation?: string;
+  sacCodeFood?: string;
+  invoicePrefix?: string;
+  bankName?: string;
+  bankAccountNo?: string;
+  bankIfsc?: string;
+  folioPolicy?: string;
   autoCleaning: boolean;
   currencySymbol?: string;
   checkInTime?: string;
   checkOutTime?: string;
+  managerSignatory?: string;
+  logoUrl?: string;
+  enableNightAudit?: boolean;
+  enableLostAndFound?: boolean;
 }
 
 /* ==================== RESERVATIONS & BOOKINGS ==================== */
@@ -288,7 +319,7 @@ export interface ServiceOrder {
 }
 
 /* ==================== STAFF & SHIFT HANDOVER ==================== */
-export type StaffRole = "MANAGER" | "RECEPTIONIST" | "HOUSEKEEPING" | "CHEF" | "MAINTENANCE";
+export type StaffRole = "SUPER_ADMIN" | "ADMIN" | "MANAGER" | "RECEPTIONIST" | "HOUSEKEEPING" | "CHEF" | "MAINTENANCE";
 export type ShiftType = "MORNING" | "EVENING" | "NIGHT" | "FULL_DAY";
 
 export interface StaffMember {
@@ -296,9 +327,12 @@ export interface StaffMember {
   name: string;
   role: StaffRole;
   phone: string;
+  email?: string;
   shift: ShiftType;
   status: "ON_DUTY" | "OFF_DUTY";
   joinedDate: string;
+  propertyId?: string;
+  propertyName?: string;
 }
 
 export interface ShiftRegister {
@@ -336,5 +370,76 @@ export interface HotelExpense {
   paidTo?: string;
   notes?: string;
   createdAt: string;
+}
+
+/* ==================== HOTEL CHAIN & MULTI-PROPERTY ==================== */
+export interface HotelProperty {
+  id: string;
+  name: string;
+  chain: string;
+  brandTier: string;
+  location: string;
+  starRating: string;
+  roomCount: number;
+  occupancyRate: number;
+  phone: string;
+  email: string;
+  address: string;
+  gstin: string;
+  upiId: string;
+  active: boolean;
+  dailyRevenue?: number;
+  adr?: number;
+  managerName?: string;
+  status?: "ACTIVE" | "INACTIVE" | "MAINTENANCE";
+}
+
+/* ==================== NIGHT AUDIT & EOD ==================== */
+export interface NightAuditRecord {
+  id: string;
+  businessDate: string; // YYYY-MM-DD
+  auditTimestamp: string;
+  auditedBy: string;
+  totalRooms: number;
+  occupiedRooms: number;
+  occupancyRate: number;
+  roomRevenue: number;
+  posRevenue: number;
+  servicesRevenue: number;
+  totalRevenue: number;
+  adr: number;
+  revPar: number;
+  totalGst: number;
+  settlements: {
+    cash: number;
+    upi: number;
+    card: number;
+    corporate: number;
+  };
+  notes?: string;
+}
+
+/* ==================== LOST & FOUND REGISTER ==================== */
+export type LostAndFoundStatus = "SECURED" | "GUEST_NOTIFIED" | "CLAIMED" | "DISPOSED";
+export type LostAndFoundCategory = "ELECTRONICS" | "VALUABLES" | "JEWELRY" | "DOCUMENTS" | "CLOTHING" | "OTHER";
+
+export interface LostAndFoundItem {
+  id: string;
+  itemNo: string;
+  title: string;
+  category: LostAndFoundCategory;
+  locationFound: string;
+  roomNumber?: string;
+  foundDate: string;
+  foundTime: string;
+  foundByStaff: string;
+  storageLocker: string;
+  guestName?: string;
+  guestPhone?: string;
+  status: LostAndFoundStatus;
+  notes?: string;
+  claimedAt?: string;
+  claimedBy?: string;
+  claimantContact?: string;
 }
 

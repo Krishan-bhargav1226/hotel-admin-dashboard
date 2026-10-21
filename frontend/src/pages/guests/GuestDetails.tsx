@@ -17,8 +17,9 @@ import { buildPath, formatCurrency } from "../../utils/helper/helper";
 import { formatDateTime } from "../../utils/date/dateUtils";
 import { idTypeName } from "../../utils/helper/constants";
 import { Skeleton } from "../../components/ui/skeleton";
+import MaskedId from "../../components/ui/MaskedId";
 import { colors } from "../../utils/theme/colorTheme";
-import { IoMdEye } from "react-icons/io";
+import { Eye } from "lucide-react";
 
 const columns = [{ label: "Stay" }, { label: "Room" }, { label: "Plan" }, { label: "Check In" }, { label: "Check Out" }, { label: "Amount" }, { label: "Action" }];
 
@@ -69,7 +70,7 @@ const GuestDetails = () => {
           <Box className="mt-3 space-y-3">
             <IdImage value={guest.idImage} className="h-44 w-full" />
             <Typography fontWeight={700}>{idTypeName(guest.idType)}</Typography>
-            <Typography variant="body2">{guest.idNumber}</Typography>
+            <MaskedId value={guest.idNumber} />
             {guest.address && <Typography variant="body2" className="text-gray-600">{guest.address}</Typography>}
             {guest.isFlagged && guest.flagReason && <Typography variant="body2" color="error">{guest.flagReason}</Typography>}
           </Box>
@@ -83,7 +84,7 @@ const GuestDetails = () => {
                     <IdImage value={c.idImage} className="h-14 w-20" />
                     <Box>
                       <Typography variant="body2" fontWeight={700}>{c.name}</Typography>
-                      <Typography variant="caption" className="text-gray-600">{idTypeName(c.idType)} · {c.idNumber}</Typography>
+                      <span className="mt-0.5 flex flex-wrap items-center gap-1 text-xs text-gray-600">{idTypeName(c.idType)} <MaskedId value={c.idNumber} /></span>
                     </Box>
                   </Box>
                 ))}
@@ -93,7 +94,7 @@ const GuestDetails = () => {
           <Typography variant="h6" fontWeight={700}>Visit history</Typography>
           <RenderTable columns={columns}>
             {stays.length === 0 ? (
-              <TableRow itemIndex={1}><td className="p-4 text-center text-gray-500" colSpan={columns.length}>Abhi koi visit nahi</td></TableRow>
+              <TableRow itemIndex={1}><td className="p-4 text-center text-gray-500" colSpan={columns.length}>No visit history found</td></TableRow>
             ) : (
               stays.map((s, i) => (
                 <TableRow key={s.id} itemIndex={i}>
@@ -104,7 +105,7 @@ const GuestDetails = () => {
                   <td className="p-3 text-sm whitespace-nowrap">{formatDateTime(s.checkOutAt)}</td>
                   <td className="p-3 text-sm">{s.status === "COMPLETED" ? formatCurrency(s.totalAmount) : "In house"}</td>
                   <td className="p-3">
-                    <IconButton tooltip="View" icon={<IoMdEye size={16} />} bgColor="ORANGE" onClick={() => navigate(buildPath(AppEndPoints.STAY_DETAILS, s.id))} />
+                    <IconButton tooltip="View" icon={<Eye size={16} />} bgColor="ORANGE" onClick={() => navigate(buildPath(AppEndPoints.STAY_DETAILS, s.id))} />
                   </td>
                 </TableRow>
               ))

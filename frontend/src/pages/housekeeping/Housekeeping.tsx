@@ -18,7 +18,7 @@ import type { HousekeepingStatus, HousekeepingTask, MaintenancePriority } from "
 
 type ViewMode = "KANBAN" | "FLOOR_GRID";
 const DEFAULT_CHECKLIST: InspectionChecklist = { linen: true, bathroom: true, toiletries: true, electronics: true, refreshments: true, locks: true };
-const EMPTY_TICKET: MaintenanceFormValues = { roomId: "", title: "", description: "", priority: "MEDIUM" as MaintenancePriority, reportedBy: "Front Desk Staff", assignedTo: "Kishore Kumar", cost: 0 };
+const EMPTY_TICKET: MaintenanceFormValues = { roomId: "", title: "", description: "", priority: "MEDIUM" as MaintenancePriority, reportedBy: "Front Desk Staff", assignedTo: "", cost: 0 };
 
 export default function Housekeeping() {
   const { data: tasks = [] } = useGetHousekeepingTasksQuery();
@@ -82,7 +82,12 @@ export default function Housekeeping() {
     toast.success("Ticket set to In Progress");
   };
   const handleReportIssue = () => {
-    if (rooms.length && !ticketForm.roomId) setTicketForm((current) => ({ ...current, roomId: rooms[0].id }));
+    const defaultStaff = staffOptions[0]?.name || "";
+    setTicketForm((current) => ({
+      ...current,
+      roomId: current.roomId || rooms[0]?.id || "",
+      assignedTo: current.assignedTo || defaultStaff,
+    }));
     setOpenTicketModal(true);
   };
 

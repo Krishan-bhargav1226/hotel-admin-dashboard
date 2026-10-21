@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Box, Button, Typography, Chip } from "@mui/material";
-import { MdContentCopy, MdCheck } from "react-icons/md";
+import { Check, Copy } from "lucide-react";
 import UiDialog from "./UiDialog";
 import { formatCurrency } from "../../../utils/helper/helper";
 import toast from "react-hot-toast";
@@ -19,7 +19,7 @@ export default function UpiQrModal({
   open,
   onClose,
   hotelName,
-  upiId = "grandhorizon@okaxis",
+  upiId = "hotel@upi",
   amount,
   description = "Stay Bill Payment",
   stayNo,
@@ -79,7 +79,7 @@ export default function UpiQrModal({
             size="small"
             variant="text"
             onClick={copyUpi}
-            startIcon={copied ? <MdCheck className="text-emerald-600" /> : <MdContentCopy />}
+            startIcon={copied ? <Check className="size-3.5 text-emerald-600" /> : <Copy className="size-3.5" />}
             sx={{ minWidth: "auto", p: 0.5, fontSize: "0.75rem" }}
           >
             {copied ? "Copied" : "Copy"}

@@ -3,7 +3,7 @@ import type { AppError } from "../../utils/interfaces/Interface";
 
 /**
  * Ek hi API instance, har entity ki file `injectEndpoints` se endpoints jodti hai.
- * `fakeBaseQuery` ka matlab: request network par nahi, local database par jaati hai.
+ * fakeBaseQuery: requests execute against the local database rather than over the network.
  * Backend aane par fakeBaseQuery ko fetchBaseQuery se badal do.
  */
 export const hotelApi = createApi({
@@ -25,6 +25,9 @@ export const hotelApi = createApi({
     "Staff",
     "Shift",
     "Expense",
+    "Property",
+    "LostAndFound",
+    "NightAudit",
   ],
   endpoints: () => ({}),
 });
@@ -45,6 +48,9 @@ export const ALL_TAGS = [
   "Staff",
   "Shift",
   "Expense",
+  "Property",
+  "LostAndFound",
+  "NightAudit",
 ] as const;
 
 type RunResult<T> =

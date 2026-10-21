@@ -1,4 +1,4 @@
-import { MdAdd, MdCheckCircle, MdFastfood } from "react-icons/md";
+import { Plus, CheckCircle2, Utensils } from "lucide-react";
 import { formatCurrency } from "../../../utils/helper/helper";
 import type { ServiceOrder } from "../../../utils/interfaces/Interface";
 
@@ -23,10 +23,10 @@ export default function ServiceOrdersPanel({ orders, onCreateOrder, onMarkDelive
 function EmptyOrders({ onCreateOrder }: { onCreateOrder: () => void }) {
   return (
     <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-16 text-center">
-      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-400"><MdFastfood size={24} /></div>
+      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-400"><Utensils size={24} /></div>
       <h3 className="text-sm font-bold text-slate-800">No active room service orders</h3>
       <p className="mx-auto mt-1 max-w-sm text-xs text-slate-400">Orders sent to guest rooms (meals, drinks, extra amenities, laundry) will appear here in real time.</p>
-      <button type="button" onClick={onCreateOrder} className="mt-4 inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-all hover:bg-brand-800"><MdAdd size={15} /><span>Create First Room Order</span></button>
+      <button type="button" onClick={onCreateOrder} className="mt-4 inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-all hover:bg-brand-800"><Plus size={15} /><span>Create First Room Order</span></button>
     </div>
   );
 }
@@ -55,7 +55,7 @@ function ServiceOrderCard({ order, onMarkDelivered }: { order: ServiceOrder; onM
       </div>
       <div className="mt-4 border-t border-slate-100 pt-3">
         <div className="mb-3 flex items-center justify-between"><span className="text-[11px] font-medium text-slate-400">{order.billedToRoom ? "Charged to Room Folio" : `Paid (${order.paymentMode})`}</span><span className="font-mono text-base font-bold text-slate-900">{formatCurrency(order.totalAmount)}</span></div>
-        {delivered ? <div className="py-1 text-center text-[11px] font-medium text-slate-400">Order Settled & Closed</div> : <button type="button" onClick={onMarkDelivered} className="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-2xs transition-all hover:bg-emerald-700 active:scale-[0.98]"><MdCheckCircle size={15} /><span>Mark Delivered & Served</span></button>}
+        {delivered ? <div className="py-1 text-center text-[11px] font-medium text-slate-400">Order Settled & Closed</div> : <button type="button" onClick={onMarkDelivered} className="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-2xs transition-all hover:bg-emerald-700 active:scale-[0.98]"><CheckCircle2 size={15} /><span>Mark Delivered & Served</span></button>}
       </div>
     </article>
   );

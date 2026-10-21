@@ -58,7 +58,7 @@ const roomTypeApi = hotelApi.injectEndpoints({
           runExclusive(async () => {
             const rooms = await readList<Room>(DbKeys.ROOMS);
             if (rooms.some((r) => r.roomTypeId === id)) {
-              throw new Error("Is type ke rooms maujood hain — pehle unka type badlo");
+              throw new Error("Rooms of this type exist — reassign their type before deleting");
             }
             const list = await readList<RoomType>(DbKeys.ROOM_TYPES);
             await writeList(DbKeys.ROOM_TYPES, list.filter((t) => t.id !== id));

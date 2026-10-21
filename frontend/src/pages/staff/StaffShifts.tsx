@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Box, Tab, Tabs, Typography } from "@mui/material";
 import toast from "react-hot-toast";
 import dayjs from "dayjs";
-import { MdAdd, MdPeople, MdPointOfSale } from "react-icons/md";
+import { Plus, Users, Landmark } from "lucide-react";
 import MainContainer from "../../components/ui/container/MainContainer";
 import PageTitle from "../../components/ui/container/PageTitle";
 import UISubmitButton from "../../components/ui/buttons/UISubmitButton";
@@ -10,6 +10,7 @@ import StaffDirectory from "./components/StaffDirectory";
 import ShiftRegisterList from "./components/ShiftRegisterList";
 import StaffDialog from "./components/StaffDialog";
 import ShiftHandoverDialog, { type ShiftFormValues } from "./components/ShiftHandoverDialog";
+import { ShowConfirmModal } from "../../hooks/useShowConfirmModal";
 import {
   useCreateShiftRegisterMutation,
   useDeleteStaffMemberMutation,
@@ -43,12 +44,12 @@ export default function StaffShifts() {
   const [shiftForm, setShiftForm] = useState<ShiftFormValues>({
     shiftDate: dayjs().format("YYYY-MM-DD"),
     shiftType: "MORNING",
-    staffName: "Aarav Sharma",
-    openingCash: 5000,
-    cashCollected: 12000,
-    pettyExpensesPaid: 1200,
-    actualCashCounted: 15800,
-    handoverNotes: "All room keys accounted for. Night shift guest arriving around 11 PM.",
+    staffName: "",
+    openingCash: 0,
+    cashCollected: 0,
+    pettyExpensesPaid: 0,
+    actualCashCounted: 0,
+    handoverNotes: "",
   });
 
   const expectedClosing = shiftForm.openingCash + shiftForm.cashCollected - shiftForm.pettyExpensesPaid;
@@ -75,13 +76,24 @@ export default function StaffShifts() {
     try {
       await createShift({
         ...shiftForm,
-        openingCash: Number(shiftForm.openingCash),
-        cashCollected: Number(shiftForm.cashCollected),
-        pettyExpensesPaid: Number(shiftForm.pettyExpensesPaid),
-        actualCashCounted: Number(shiftForm.actualCashCounted),
+        staffName: shiftForm.staffName || staffList[0]?.name || "Front Desk Staff",
+        openingCash: Number(shiftForm.openingCash) || 0,
+        cashCollected: Number(shiftForm.cashCollected) || 0,
+        pettyExpensesPaid: Number(shiftForm.pettyExpensesPaid) || 0,
+        actualCashCounted: Number(shiftForm.actualCashCounted) || 0,
       }).unwrap();
       toast.success("Shift register handover recorded successfully!");
       setOpenShiftModal(false);
+      setShiftForm({
+        shiftDate: dayjs().format("YYYY-MM-DD"),
+        shiftType: "MORNING",
+        staffName: staffList[0]?.name || "",
+        openingCash: 0,
+        cashCollected: 0,
+        pettyExpensesPaid: 0,
+        actualCashCounted: 0,
+        handoverNotes: "",
+      });
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -89,14 +101,28 @@ export default function StaffShifts() {
 
   const handleToggleDuty = async (member: StaffMember) => {
     const isOnDuty = member.status === "ON_DUTY";
-    await saveStaff({ ...member, status: isOnDuty ? "OFF_DUTY" : "ON_DUTY" });
-    toast.success(`${member.name} is now ${isOnDuty ? "Off Duty" : "On Duty"}`);
+    try {
+      await saveStaff({ ...member, status: isOnDuty ? "OFF_DUTY" : "ON_DUTY" }).unwrap();
+      toast.success(`${member.name} is now ${isOnDuty ? "Off Duty" : "On Duty"}`);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
   };
 
   const handleDeleteStaff = async (member: StaffMember) => {
-    if (!confirm(`Remove ${member.name} from staff directory?`)) return;
-    await deleteStaff(member.id);
-    toast.success("Staff member deleted");
+    const ok = await ShowConfirmModal({
+      title: `Remove ${member.name} from staff directory?`,
+      text: "Staff member profile and shift records will be permanently deleted.",
+      confirmButtonText: "Remove staff",
+      buttonColor: "red",
+    });
+    if (!ok) return;
+    try {
+      await deleteStaff(member.id).unwrap();
+      toast.success("Staff member deleted");
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
   };
 
   return (
@@ -108,13 +134,13 @@ export default function StaffShifts() {
         </div>
         <Box className="flex items-center gap-2">
           <Tabs value={activeTab} onChange={(_event, value) => setActiveTab(value)} sx={{ bgcolor: "background.paper", borderRadius: "8px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", minHeight: 40, "& .MuiTab-root": { minHeight: 40, py: 1, px: 2, fontWeight: 600, fontSize: "0.85rem" } }}>
-            <Tab icon={<MdPeople size={18} />} iconPosition="start" label="Staff Directory" />
-            <Tab icon={<MdPointOfSale size={18} />} iconPosition="start" label="Shift Drawer Handover" />
+            <Tab icon={<Users size={18} />} iconPosition="start" label="Staff Directory" />
+            <Tab icon={<Landmark size={18} />} iconPosition="start" label="Shift Drawer Handover" />
           </Tabs>
           {activeTab === 0 ? (
-            <UISubmitButton type="button" color="primary" text="Add Staff Member" startIcon={<MdAdd size={18} />} onClick={() => { setStaffForm(EMPTY_STAFF); setOpenStaffModal(true); }} />
+            <UISubmitButton type="button" color="primary" text="Add Staff Member" startIcon={<Plus size={18} />} onClick={() => { setStaffForm(EMPTY_STAFF); setOpenStaffModal(true); }} />
           ) : (
-            <UISubmitButton type="button" color="secondary" text="New Shift Handover" startIcon={<MdPointOfSale size={18} />} onClick={() => setOpenShiftModal(true)} />
+            <UISubmitButton type="button" color="secondary" text="New Shift Handover" startIcon={<Landmark size={18} />} onClick={() => setOpenShiftModal(true)} />
           )}
         </Box>
       </Box>

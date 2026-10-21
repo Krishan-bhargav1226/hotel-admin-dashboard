@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
-import { MdGridView, MdViewList, MdSearch } from "react-icons/md";
+import { LayoutGrid, List, Search } from "lucide-react";
 import InBetweenDateSearch from "../../../components/forms/InBetweenDateSearch";
 import type { DateRangeValue } from "../../../components/forms/dateRangePresets";
 import type { StayTabFilter, StayViewMode } from "./stayTypes";
@@ -34,20 +34,20 @@ export default function StayFilters(props: StayFiltersProps) {
   return <>
     <div className="mb-5 flex flex-col justify-between gap-3 border-b border-slate-100 pb-4 md:flex-row md:items-center">
       <div className="inline-flex flex-wrap items-center gap-1 rounded-xl bg-slate-100/80 p-1">
-        {FILTERS.map(({ key, label }) => <button key={key} type="button" onClick={() => { setTab(key); resetPage(); }} className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${tab === key ? "bg-white font-bold text-slate-900 shadow-2xs" : "text-slate-600 hover:text-slate-900"}`}>{label} ({counts[key]})</button>)}
+        {FILTERS.map(({ key, label }) => <button key={key} type="button" onClick={() => { setTab(key); resetPage(); }} className={`min-h-11 cursor-pointer rounded-lg px-3 text-xs font-semibold transition-all ${tab === key ? "bg-white font-bold text-slate-900 shadow-2xs" : "text-slate-600 hover:text-slate-900"}`}>{label} ({counts[key]})</button>)}
       </div>
       <div className="flex items-center gap-2"><div className="inline-flex rounded-xl bg-slate-100 p-1">
-        <ViewButton label="Grid view" active={view === "GRID"} onClick={() => setView("GRID")}><MdGridView size={16} /></ViewButton>
-        <ViewButton label="Table view" active={view === "TABLE"} onClick={() => setView("TABLE")}><MdViewList size={16} /></ViewButton>
+        <ViewButton label="Grid view" active={view === "GRID"} onClick={() => setView("GRID")}><LayoutGrid size={16} /></ViewButton>
+        <ViewButton label="Table view" active={view === "TABLE"} onClick={() => setView("TABLE")}><List size={16} /></ViewButton>
       </div></div>
     </div>
     <div className="mb-5 flex flex-wrap items-center gap-2.5">
-      <label className="flex w-full items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 sm:w-80"><MdSearch size={16} className="shrink-0 text-slate-400" /><input type="search" aria-label="Search stays" placeholder="Search guest, mobile, room, stay ID..." value={search} onChange={(event) => { setSearch(event.target.value); resetPage(); }} className="ml-2 flex-1 bg-transparent text-xs text-slate-900 focus:outline-none" /></label>
+      <label className="flex h-11 w-full items-center rounded-xl border border-slate-200 bg-slate-50 px-3 sm:w-80"><Search size={16} className="shrink-0 text-slate-400" /><input type="search" aria-label="Search stays" placeholder="Search guest, mobile, room, stay ID..." value={search} onChange={(event) => { setSearch(event.target.value); resetPage(); }} className="ml-2 h-full flex-1 bg-transparent text-sm text-slate-900 focus:outline-none" /></label>
       <InBetweenDateSearch value={range} defaultPreset="all" onChange={(value) => { setRange(value); resetPage(); }} />
     </div>
   </>;
 }
 
 function ViewButton({ label, active, onClick, children }: { label: string; active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return <button type="button" aria-label={label} aria-pressed={active} onClick={onClick} className={`inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${active ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>{children}</button>;
+  return <button type="button" aria-label={label} aria-pressed={active} onClick={onClick} className={`inline-flex h-11 w-11 items-center justify-center rounded-lg transition-colors ${active ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>{children}</button>;
 }

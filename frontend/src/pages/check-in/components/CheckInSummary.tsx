@@ -1,158 +1,163 @@
 import { useFormikContext } from "formik";
-import { MdKey, MdArrowForward } from "react-icons/md";
-import RoomPhoto from "../../../components/ui/room/RoomPhoto";
+import { CheckCircle2, Eye } from "lucide-react";
+import { Button } from "../../../components/ui/button";
 import { describePlan } from "../../../utils/helper/billing";
 import { formatCurrency } from "../../../utils/helper/helper";
 import { formatDateTime } from "../../../utils/date/dateUtils";
-import { getRoomMeta } from "../../../utils/helper/roomImages";
-import type { RatePlan, Room, RoomType } from "../../../utils/interfaces/Interface";
+import { partyTypeLabel } from "../../../utils/helper/stayRooms";
+import type { BillBreakdown, RatePlan, Room, RoomType } from "../../../utils/interfaces/Interface";
 import type { CheckInFormValues } from "../types";
 
 interface CheckInSummaryProps {
-  selectedRoom?: Room;
+  selectedRooms: Room[];
   roomTypes: RoomType[];
   activePlan?: RatePlan;
   expectedCheckOut: string | null;
+  estimate: BillBreakdown | null;
   isLoading: boolean;
+  onOpenReview?: () => void;
 }
 
-export default function CheckInSummary({ selectedRoom, roomTypes, activePlan, expectedCheckOut, isLoading }: CheckInSummaryProps) {
+export default function CheckInSummary({
+  selectedRooms,
+  roomTypes,
+  activePlan,
+  expectedCheckOut,
+  estimate,
+  isLoading,
+  onOpenReview,
+}: CheckInSummaryProps) {
   const { values } = useFormikContext<CheckInFormValues>();
+  const advance = Number(values.advanceAmount) || 0;
+  const balance = estimate ? Math.max(0, estimate.total - advance) : 0;
+  const primaryName = values.members?.[0]?.fullName?.trim() || "—";
+
+  const roomLabel = selectedRooms.length
+    ? selectedRooms
+        .map((room) => {
+          const type = roomTypes.find((item) => item.id === room.roomTypeId);
+          return type ? `${room.number} · ${type.name}` : room.number;
+        })
+        .join(", ")
+    : "—";
+
+  // Check if every person has mandatory ID file uploaded
+  const allIdsUploaded =
+    values.members.length > 0 &&
+    values.members.every((m) => Boolean(m.idDocumentId || m.isExistingUploaded));
+
+  const canSubmit =
+    Boolean(values.phone) &&
+    values.members.length > 0 &&
+    values.roomIds.length > 0 &&
+    Boolean(values.planId) &&
+    allIdsUploaded &&
+    !isLoading;
+
   return (
-                <div>
-                  <div className="sticky top-20 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
-                    <div className="flex items-center gap-2 mb-4 border-b border-slate-100 pb-3">
-                      <div className="w-8 h-8 rounded-xl bg-brand-700 text-white flex items-center justify-center">
-                        <MdKey size={18} />
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-bold tracking-tight text-slate-900">
-                          Check-In Folio Preview
-                        </h3>
-                        <span className="text-[11px] text-slate-500 font-medium">
-                          Automated Billing Rules
-                        </span>
-                      </div>
-                    </div>
+    <aside className="rounded-2xl border border-slate-200/80 bg-white p-5 lg:sticky lg:top-20 dark:border-slate-700 dark:bg-[var(--card)]">
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Ready to check in</h2>
+      <dl className="mt-4 space-y-3 text-sm">
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="text-slate-500 dark:text-slate-400">Guest</dt>
+          <dd className="truncate font-medium text-slate-900 dark:text-slate-50">{primaryName}</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="text-slate-500 dark:text-slate-400">Party</dt>
+          <dd className="truncate text-right font-medium text-slate-900 dark:text-slate-50">
+            {partyTypeLabel(values.partyType)} · {values.members.length} {values.members.length === 1 ? "guest" : "guests"}
+          </dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="text-slate-500 dark:text-slate-400">ID Status</dt>
+          <dd className="truncate text-right font-medium">
+            {allIdsUploaded ? (
+              <span className="text-emerald-700 dark:text-emerald-400">All IDs uploaded</span>
+            ) : (
+              <span className="text-rose-600 dark:text-rose-400">ID file required</span>
+            )}
+          </dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="text-slate-500 dark:text-slate-400">Room{selectedRooms.length > 1 ? "s" : ""}</dt>
+          <dd className="truncate text-right font-medium text-slate-900 dark:text-slate-50">{roomLabel}</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="text-slate-500 dark:text-slate-400">Stay</dt>
+          <dd className="truncate text-right font-medium text-slate-900 dark:text-slate-50">
+            {activePlan ? describePlan(activePlan) : "—"}
+            {selectedRooms.length > 1 ? ` × ${selectedRooms.length}` : ""}
+          </dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="text-slate-500 dark:text-slate-400">Out</dt>
+          <dd className="text-right font-medium text-slate-900 dark:text-slate-50">
+            {expectedCheckOut ? formatDateTime(expectedCheckOut) : activePlan?.kind === "HOURLY" ? "By the hour" : "—"}
+          </dd>
+        </div>
+        {estimate ? (
+          <>
+            <div className="flex items-baseline justify-between gap-3">
+              <dt className="text-slate-500 dark:text-slate-400">{activePlan?.kind === "HOURLY" ? "Minimum charge" : "Room charge"}</dt>
+              <dd className="font-medium tabular-nums text-slate-900 dark:text-slate-50">{formatCurrency(estimate.baseAmount)}</dd>
+            </div>
+            {estimate.taxAmount > 0 ? (
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-slate-500 dark:text-slate-400">GST {estimate.taxPercent}%</dt>
+                <dd className="font-medium tabular-nums text-slate-900 dark:text-slate-50">{formatCurrency(estimate.taxAmount)}</dd>
+              </div>
+            ) : null}
+            {advance > 0 ? (
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-slate-500 dark:text-slate-400">Advance · {values.advanceMode}</dt>
+                <dd className="font-medium tabular-nums text-slate-900 dark:text-slate-50">− {formatCurrency(advance)}</dd>
+              </div>
+            ) : null}
+            <div className="flex items-baseline justify-between gap-3 border-t border-slate-100 pt-3 dark:border-slate-700">
+              <dt className="font-medium text-slate-700 dark:text-slate-200">To collect now</dt>
+              <dd className="text-base font-bold tabular-nums text-slate-900 dark:text-slate-50">{formatCurrency(balance)}</dd>
+            </div>
+          </>
+        ) : null}
+      </dl>
+      <p className="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
+        {activePlan?.kind === "HOURLY"
+          ? "Hourly stays keep running. The final bill is calculated at check-out."
+          : "Extra hours, extra charges, and discounts are added at check-out."}
+      </p>
 
-                    {/* Room Key Hero Card with Photo */}
-                    {selectedRoom ? (
-                      <div className="mb-4 overflow-hidden rounded-xl border border-slate-200/90 bg-slate-50/60 shadow-xs">
-                        <RoomPhoto
-                          room={selectedRoom}
-                          roomType={roomTypes.find((t) => t.id === selectedRoom.roomTypeId)}
-                          aspectRatio="video"
-                          showBadge
-                          className="h-32 w-full"
-                        />
-                        <div className="p-3">
-                          <div className="flex items-center justify-between">
-                            <span className="font-mono text-base font-extrabold text-slate-900">
-                              Room {selectedRoom.number}
-                            </span>
-                            <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider bg-white px-2 py-0.5 rounded border border-slate-200">
-                              {selectedRoom.floor}
-                            </span>
-                          </div>
-                          <span className="text-xs font-bold text-slate-800 block mt-0.5 truncate">
-                            {roomTypes.find((t) => t.id === selectedRoom.roomTypeId)?.name || "Standard Room"}
-                          </span>
-                          <span className="text-[11px] text-slate-500 block mt-0.5">
-                            {getRoomMeta(selectedRoom, roomTypes.find((t) => t.id === selectedRoom.roomTypeId)).bedConfig} · {getRoomMeta(selectedRoom, roomTypes.find((t) => t.id === selectedRoom.roomTypeId)).badge}
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="mb-4 rounded-xl bg-slate-50/80 border border-slate-100 p-4 text-center text-slate-400 text-xs">
-                        Please select an available room from Step 3
-                      </div>
-                    )}
+      {/* Review & Confirm Button */}
+      {onOpenReview && (
+        <button
+          type="button"
+          onClick={onOpenReview}
+          disabled={!canSubmit}
+          className="mt-3 flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-brand-300 bg-brand-50 px-4 text-xs font-bold text-brand-900 transition-colors hover:bg-brand-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-50 dark:border-brand-800 dark:bg-brand-950 dark:text-brand-200"
+        >
+          <Eye className="size-4" />
+          <span>Review Guest & IDs</span>
+        </button>
+      )}
 
-                    {/* Summary Lines */}
-                    <div className="space-y-2.5 text-xs border-b border-slate-100 pb-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-500">Guest Type</span>
-                        <span className="font-semibold text-slate-900">
-                          {values.customerType === "REPEAT" ? "⭐ Returning Customer" : "✨ New Customer"}
-                        </span>
-                      </div>
+      {/* Primary Submit Button */}
+      <Button
+        type="submit"
+        size="lg"
+        className="mt-2.5 w-full font-bold"
+        loading={isLoading}
+        disabled={!canSubmit}
+      >
+        <CheckCircle2 className="size-4 mr-1.5" />
+        <span>Confirm Check in</span>
+      </Button>
 
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-500">Party Size</span>
-                        <span className="font-semibold text-slate-900">
-                          {values.partyType} ({1 + values.companions.filter((c) => c.name.trim()).length} Person)
-                        </span>
-                      </div>
+      {!allIdsUploaded && (
+        <p className="mt-2 text-center text-xs font-semibold text-rose-600 dark:text-rose-400">
+          * Har person ka ID document upload karna zaroori hai.
+        </p>
+      )}
 
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-500">Duration Model</span>
-                        <span className="font-semibold text-brand-900">
-                          {values.durationType === "HOURLY"
-                            ? "Hourly Stay"
-                            : values.durationType === "12_HOURS"
-                            ? "12 Hours Pass"
-                            : "Full Day (24h)"}
-                        </span>
-                      </div>
-
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-500">Rate Plan</span>
-                        <span className="font-semibold text-slate-900">
-                          {activePlan?.name || "—"}
-                        </span>
-                      </div>
-
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-500">Rate Structure</span>
-                        <span className="font-mono text-slate-700 font-medium">
-                          {activePlan ? describePlan(activePlan) : "—"}
-                        </span>
-                      </div>
-
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-500">Expected Check-Out</span>
-                        <span className="font-semibold text-slate-900">
-                          {expectedCheckOut ? formatDateTime(expectedCheckOut) : "Flexible / By Hour"}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Dynamic Billing Disclosure Box */}
-                    <div className="my-3.5 rounded-xl bg-amber-50/70 border border-amber-200/70 p-3 text-xs text-amber-950">
-                      <div className="font-bold text-amber-900 mb-0.5">
-                        💡 Checkout Billing Calculation:
-                      </div>
-                      <p className="text-[11px] text-amber-800 leading-relaxed">
-                        {values.durationType === "HOURLY"
-                          ? "At checkout, total bill calculates automatically based on exact elapsed hours multiplied by the hourly rate."
-                          : values.durationType === "12_HOURS"
-                          ? "Flat 12-hour tariff applies. If stay exceeds 12h, overtime charges apply automatically at checkout."
-                          : "24-hour tariff applies. Overtime or extra night extensions calculate automatically upon checkout."}
-                      </p>
-                    </div>
-
-                    {/* Advance Summary */}
-                    <div className="py-2 flex justify-between items-center text-xs border-b border-slate-100">
-                      <span className="text-slate-500">Advance Paid</span>
-                      <span className="font-mono font-bold text-emerald-700">
-                        {formatCurrency(Number(values.advanceAmount) || 0)} ({values.advanceMode})
-                      </span>
-                    </div>
-
-                    {/* Action Button */}
-                    <div className="pt-4">
-                      <button
-                        type="submit"
-                        disabled={isLoading || !values.roomId}
-                        className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-xs font-semibold text-white shadow-2xs hover:bg-brand-800 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50"
-                      >
-                        <span>{isLoading ? "Assigning Room..." : "Confirm Check-In & Issue Room Key"}</span>
-                        <MdArrowForward size={16} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
+      <p className="mt-2 text-center text-[11px] text-slate-500">Enter moves to the next field. Ctrl+Enter checks in.</p>
+    </aside>
   );
 }
-
-

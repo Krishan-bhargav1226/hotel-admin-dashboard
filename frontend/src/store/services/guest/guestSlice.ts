@@ -100,7 +100,7 @@ const guestApi = hotelApi.injectEndpoints({
             const guests = await readList<Guest>(DbKeys.GUESTS);
             const phone = normalizePhone(payload.phone);
             if (guests.some((g) => g.phone === phone)) {
-              throw new Error("Is phone number ka guest pehle se maujood hai");
+              throw new Error("A guest with this phone number already exists");
             }
             const now = new Date().toISOString();
             const guest: Guest = {
@@ -125,7 +125,7 @@ const guestApi = hotelApi.injectEndpoints({
             const guests = await readList<Guest>(DbKeys.GUESTS);
             const phone = normalizePhone(data.phone);
             if (guests.some((g) => g.id !== id && g.phone === phone)) {
-              throw new Error("Is phone number ka dusra guest pehle se maujood hai");
+              throw new Error("Another guest with this phone number already exists");
             }
             const old = guests.find((g) => g.id === id);
             if (!old) throw new Error("Guest not found");
@@ -151,7 +151,7 @@ const guestApi = hotelApi.injectEndpoints({
           runExclusive(async () => {
             const stays = await readList<Stay>(DbKeys.STAYS);
             if (stays.some((s) => s.guestId === id && s.status === "ACTIVE")) {
-              throw new Error("Guest abhi checked-in hai — pehle check-out karo");
+              throw new Error("Guest is currently checked in — please check out first");
             }
             const guests = await readList<Guest>(DbKeys.GUESTS);
             const guest = guests.find((g) => g.id === id);
