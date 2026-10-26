@@ -254,7 +254,6 @@ export default function LoginPage() {
     </main>
   );
 }
-
 function AccountButton({
   account,
   title,
@@ -292,3 +291,4 @@ function AccountButton({
 function passwordLabel(value: string) {
   return value === DEMO_PASSWORD ? "admin 123" : value;
 }
+
