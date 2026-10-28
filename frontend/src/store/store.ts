@@ -11,6 +11,10 @@ import "./services/housekeeping/housekeepingSlice";
 import "./services/pos/posSlice";
 import "./services/staff/staffSlice";
 import "./services/expense/expenseSlice";
+import "./services/property/propertySlice";
+import "./services/lost-found/lostFoundSlice";
+import "./services/night-audit/nightAuditSlice";
+import "./services/report/reportSlice";
 
 const store = configureStore({
   reducer: {

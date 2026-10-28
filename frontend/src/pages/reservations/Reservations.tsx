@@ -118,6 +118,10 @@ export default function Reservations() {
         idType: checkInIdType,
         idNumber: checkInIdNumber.trim(),
         address: checkInAddress.trim(),
+        guestName: checkInTarget.guestName,
+        guestPhone: checkInTarget.guestPhone,
+        advanceAmount: checkInTarget.advanceAmount,
+        advanceMode: checkInTarget.paymentMode,
       }).unwrap();
       toast.success(`Check-in complete for ${checkInTarget.guestName}! Room assigned: ${stay.roomNumber}`);
       setCheckInTarget(null);

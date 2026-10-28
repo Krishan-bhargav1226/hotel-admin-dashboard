@@ -12,7 +12,7 @@ import { useNow } from "../../hooks/useNow";
 import { useGetGuestsQuery } from "../../store/services/guest/guestSlice";
 import { useGetReservationsQuery } from "../../store/services/reservation/reservationSlice";
 import { useGetRoomsQuery } from "../../store/services/room/roomSlice";
-import { useGetSettingsQuery, useLoadDemoDataMutation } from "../../store/services/settings/settingsSlice";
+import { useGetSettingsQuery } from "../../store/services/settings/settingsSlice";
 import { useGetStaysQuery } from "../../store/services/stay/staySlice";
 import {
   useCreatePropertyMutation,
@@ -44,8 +44,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const { data: properties = [] } = useGetPropertiesQuery();
   const [switchProperty] = useSwitchActivePropertyMutation();
   const [createProperty, { isLoading: isCreatingProperty }] = useCreatePropertyMutation();
-  const [loadDemo, { isLoading: loadingDemo }] = useLoadDemoDataMutation();
-  const hotelName = settings?.hotelName || "Grand Horizon Hotel";
+  const hotelName = settings?.hotelName || "Hotel";
 
   const occupiedCount = rooms.filter((room) => room.status === "OCCUPIED").length;
   const occupancyRate = rooms.length ? Math.round((occupiedCount / rooms.length) * 100) : 0;
@@ -59,11 +58,6 @@ export default function Header({ onMenuClick }: HeaderProps) {
     return [...arrivals, ...balances, ...cleaningNotice];
   }, [reservations, stays, cleaningCount, role]);
 
-  const handleLoadDemo = async () => {
-    try { await loadDemo().unwrap(); toast.success("Complete hotel management demo data loaded."); }
-    catch (error) { toast.error(getErrorMessage(error)); }
-  };
-
   const go = (path: string) => {
     navigate(path);
     setQuery("");
@@ -75,7 +69,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
       <div className="relative flex min-w-0 flex-1 items-center gap-2">
         <Button variant="ghost" size="icon" aria-label="Toggle sidebar" onClick={onMenuClick}><Menu aria-hidden="true" /></Button>
         <div className="hidden items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 sm:flex">
-          {role === "SUPER_ADMIN" ? "Chain Office" : role === "ADMIN" ? "Hotel Admin" : "Front Desk"}
+          {role === "SUPER_ADMIN" ? "Chain Office" : role === "ADMIN" ? "Hotel Admin" : role === "USER" ? "Registered User" : "Front Desk"}
         </div>
         {role === "SUPER_ADMIN" ? (
           <div className="hidden items-center gap-1.5 lg:flex">
@@ -135,7 +129,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
         )}
         <GlobalSearch query={query} setQuery={setQuery} focused={searchFocused} setFocused={setSearchFocused} rooms={rooms} guests={guests} reservations={reservations} stays={stays} onNavigate={go} />
       </div>
-      <HeaderTools occupancy={occupancyRate} available={availableCount} roomsEmpty={rooms.length === 0} loadingDemo={loadingDemo} notices={notices} hotelName={hotelName} now={now} preference={preference} onPreferenceChange={setPreference} onNavigate={navigate} onOpenUpi={() => setShowUpiModal(true)} onLoadDemo={handleLoadDemo} role={role} />
+      <HeaderTools occupancy={occupancyRate} available={availableCount} notices={notices} hotelName={hotelName} now={now} preference={preference} onPreferenceChange={setPreference} onNavigate={navigate} onOpenUpi={() => setShowUpiModal(true)} role={role} />
     </header>
     <UpiQrModal open={showUpiModal} onClose={() => setShowUpiModal(false)} hotelName={hotelName} upiId={settings?.upiId || "hotel@upi"} amount={1000} description="Hotel Counter Payment" />
     <NewHotelModal

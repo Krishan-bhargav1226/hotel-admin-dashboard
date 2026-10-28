@@ -1,59 +1,80 @@
-import { hotelApi, run } from "../baseQuery";
-import { DbKeys, readList, runExclusive, writeList } from "../../../utils/db/localDb";
-import { uid } from "../../../utils/helper/helper";
+import { hotelApi } from "../baseQuery";
 import type { RatePlan } from "../../../utils/interfaces/Interface";
 
 export type RatePlanPayload = Omit<RatePlan, "id" | "createdAt">;
 
+const mapBackendRatePlan = (item: any): RatePlan => ({
+  id: String(item.id),
+  name: item.name,
+  kind: item.kind,
+  rate: Number(item.rate) || 0,
+  durationHours: Number(item.durationHours) || 0,
+  checkoutTime: item.checkoutTime || "",
+  minHours: Number(item.minHours) || 0,
+  overtimeRate: Number(item.overtimeRate) || 0,
+  graceMinutes: Number(item.graceMinutes) || 0,
+  roomTypeIds: (item.roomTypeIds || []).map(String),
+  isActive: item.isActive !== false,
+  createdAt: item.createdDate || new Date().toISOString(),
+});
+
 const ratePlanApi = hotelApi.injectEndpoints({
   endpoints: (builder) => ({
     getRatePlans: builder.query<RatePlan[], void>({
-      queryFn: () => run(() => readList<RatePlan>(DbKeys.RATE_PLANS)),
+      query: () => "/rate/plan",
+      transformResponse: (response: any) => {
+        const rawList = Array.isArray(response) ? response : (response?.data ?? []);
+        return rawList.map(mapBackendRatePlan);
+      },
       providesTags: ["RatePlan"],
     }),
+
     createRatePlan: builder.mutation<RatePlan, RatePlanPayload>({
-      queryFn: (payload) =>
-        run(() =>
-          runExclusive(async () => {
-            const list = await readList<RatePlan>(DbKeys.RATE_PLANS);
-            const item: RatePlan = {
-              ...payload,
-              id: uid(),
-              name: payload.name.trim(),
-              createdAt: new Date().toISOString(),
-            };
-            await writeList(DbKeys.RATE_PLANS, [...list, item]);
-            return item;
-          })
-        ),
+      query: (payload) => ({
+        url: "/rate/plan",
+        method: "POST",
+        body: {
+          name: payload.name.trim(),
+          kind: payload.kind,
+          rate: Number(payload.rate),
+          durationHours: Number(payload.durationHours),
+          checkoutTime: payload.checkoutTime || null,
+          minHours: Number(payload.minHours),
+          overtimeRate: Number(payload.overtimeRate),
+          graceMinutes: Number(payload.graceMinutes),
+          roomTypeIds: payload.roomTypeIds.map(Number),
+        },
+      }),
+      transformResponse: (res: any) => mapBackendRatePlan(res?.data ?? res),
       invalidatesTags: ["RatePlan"],
     }),
+
     updateRatePlan: builder.mutation<RatePlan, { id: string; data: RatePlanPayload }>({
-      queryFn: ({ id, data }) =>
-        run(() =>
-          runExclusive(async () => {
-            const list = await readList<RatePlan>(DbKeys.RATE_PLANS);
-            let updated: RatePlan | undefined;
-            const next = list.map((p) =>
-              p.id === id ? (updated = { ...p, ...data, name: data.name.trim() }) : p
-            );
-            if (!updated) throw new Error("Rate plan not found");
-            await writeList(DbKeys.RATE_PLANS, next);
-            return updated;
-          })
-        ),
+      query: ({ id, data }) => ({
+        url: `/rate/plan/${id}`,
+        method: "PUT",
+        body: {
+          name: data.name.trim(),
+          kind: data.kind,
+          rate: Number(data.rate),
+          durationHours: Number(data.durationHours),
+          checkoutTime: data.checkoutTime || null,
+          minHours: Number(data.minHours),
+          overtimeRate: Number(data.overtimeRate),
+          graceMinutes: Number(data.graceMinutes),
+          roomTypeIds: data.roomTypeIds.map(Number),
+        },
+      }),
+      transformResponse: (res: any) => mapBackendRatePlan(res?.data ?? res),
       invalidatesTags: ["RatePlan"],
     }),
+
     deleteRatePlan: builder.mutation<boolean, string>({
-      // Old stays keep their own plan snapshot, so deleting is always safe.
-      queryFn: (id) =>
-        run(() =>
-          runExclusive(async () => {
-            const list = await readList<RatePlan>(DbKeys.RATE_PLANS);
-            await writeList(DbKeys.RATE_PLANS, list.filter((p) => p.id !== id));
-            return true;
-          })
-        ),
+      query: (id) => ({
+        url: `/rate/plan/${id}`,
+        method: "DELETE",
+      }),
+      transformResponse: () => true,
       invalidatesTags: ["RatePlan"],
     }),
   }),

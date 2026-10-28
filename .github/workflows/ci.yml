@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main, chore/production-hardening]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: hotel
+          POSTGRES_PASSWORD: hotel
+          POSTGRES_DB: hotel
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hotel -d hotel"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=hotel;Username=hotel;Password=hotel
+      JwtSettings__SecretKey: ci-signing-key-must-be-32-characters
+      JwtSettings__Issuer: http://localhost
+      JwtSettings__Audience: http://localhost
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Build
+        run: dotnet build HotelBackend/CleanSetupTemplate.slnx -warnaserror
+      - name: Test
+        run: dotnet test HotelBackend/CleanSetupTemplate.slnx --no-build
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install, lint, typecheck, and build
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run lint
+          npx tsc --noEmit -p tsconfig.app.json
+          npm run build
+        env:
+          VITE_API_BASE_URL: http://localhost:8080/api

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Bell, CalendarDays, ConciergeBell, LogIn, LogOut, Monitor, Moon, Plus, QrCode, RefreshCw, Sparkles, Sun, Wallet } from "lucide-react";
+import { Bell, CalendarDays, ConciergeBell, LogIn, LogOut, Monitor, Moon, Plus, QrCode, Sparkles, Sun, Wallet } from "lucide-react";
 import dayjs from "dayjs";
 import toast from "react-hot-toast";
 import { Button } from "../../../components/ui/button";
@@ -14,8 +14,6 @@ interface Notice { id: string; title: string; detail: string; href: string; }
 interface HeaderToolsProps {
   occupancy: number;
   available: number;
-  roomsEmpty: boolean;
-  loadingDemo: boolean;
   notices: Notice[];
   hotelName: string;
   now: number;
@@ -23,7 +21,6 @@ interface HeaderToolsProps {
   onPreferenceChange: (preference: ThemePreference) => void;
   onNavigate: (path: string) => void;
   onOpenUpi: () => void;
-  onLoadDemo: () => void;
   role: DeskRole;
 }
 
@@ -32,7 +29,7 @@ const THEMES: { id: ThemePreference; label: string; icon: typeof Sun }[] = [
 ];
 
 export default function HeaderTools(props: HeaderToolsProps) {
-  const { occupancy, available, roomsEmpty, loadingDemo, notices, hotelName, now, preference, onPreferenceChange, onNavigate, onOpenUpi, onLoadDemo, role } = props;
+  const { occupancy, available, notices, hotelName, now, preference, onPreferenceChange, onNavigate, onOpenUpi, role } = props;
   const canManage = role !== "RECEPTION";
   const [showSwitchModal, setShowSwitchModal] = useState(false);
 
@@ -43,7 +40,7 @@ export default function HeaderTools(props: HeaderToolsProps) {
         variant="outline"
         size="sm"
         onClick={() => setShowSwitchModal(true)}
-        title="Sign out and use another demo account"
+        title="Sign out and use another account"
         className="hidden md:inline-flex items-center gap-1.5 border-brand-500/40 text-brand-700 dark:text-brand-300 font-bold text-xs bg-brand-50/60 dark:bg-brand-950/40 hover:bg-brand-100 dark:hover:bg-brand-900/60"
       >
         <Sparkles className="size-3.5 text-amber-500 shrink-0" />
@@ -61,9 +58,8 @@ export default function HeaderTools(props: HeaderToolsProps) {
       </button>
       <div className="hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs lg:flex dark:border-slate-700 dark:bg-slate-900"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /><span className="text-slate-500">Occupancy</span><span className="font-mono font-semibold text-slate-900 dark:text-slate-100">{occupancy}%</span><span className="text-slate-300">·</span><span className="font-medium text-emerald-700 dark:text-emerald-400">{available} free</span></div>
       <Button variant="outline" size="sm" className="hidden sm:inline-flex" onClick={onOpenUpi}><QrCode aria-hidden="true" />UPI QR</Button>
-      {roomsEmpty && canManage && <Button variant="secondary" size="sm" onClick={onLoadDemo} loading={loadingDemo} icon={RefreshCw}>{loadingDemo ? "Loading demo" : "Load demo data"}</Button>}
 
-      <QuickActionsMenu loadingDemo={loadingDemo} canManage={canManage} onNavigate={onNavigate} onLoadDemo={onLoadDemo} />
+      <QuickActionsMenu canManage={canManage} onNavigate={onNavigate} />
       <NotificationsMenu notices={notices} onNavigate={onNavigate} />
       <div className="hidden text-right sm:block"><p className="font-mono text-sm font-semibold leading-tight">{dayjs(now).format("hh:mm A")}</p><p className="text-[11px] text-slate-500">{dayjs(now).format("DD/MM/YYYY")}</p></div>
       <ProfileMenu hotelName={hotelName} canManage={canManage} preference={preference} onPreferenceChange={onPreferenceChange} onNavigate={onNavigate} onOpenSwitchModal={() => setShowSwitchModal(true)} />
@@ -72,14 +68,13 @@ export default function HeaderTools(props: HeaderToolsProps) {
   );
 }
 
-function QuickActionsMenu({ loadingDemo, canManage, onNavigate, onLoadDemo }: { loadingDemo: boolean; canManage: boolean; onNavigate: (path: string) => void; onLoadDemo: () => void }) {
+function QuickActionsMenu({ canManage, onNavigate }: { canManage: boolean; onNavigate: (path: string) => void }) {
   return <DropdownMenu><DropdownMenuTrigger asChild><Button variant="primary" size="sm" aria-label="Open quick actions"><Plus aria-hidden="true" /><span className="hidden sm:inline">Quick action</span></Button></DropdownMenuTrigger>
     <DropdownMenuContent align="end">
       <DropdownMenuItem onSelect={() => onNavigate(AppEndPoints.CHECK_IN)}><LogIn className="text-emerald-600" /><ActionLabel title="New check-in" detail="Guest arrival" /></DropdownMenuItem>
       <DropdownMenuItem onSelect={() => onNavigate(AppEndPoints.RESERVATIONS)}><CalendarDays className="text-brand-600" /><ActionLabel title="New reservation" detail="Advance booking" /></DropdownMenuItem>
       <DropdownMenuItem onSelect={() => onNavigate(AppEndPoints.POS_SERVICES)}><ConciergeBell className="text-amber-600" /><ActionLabel title="Room service order" detail="Food, beverage, or laundry" /></DropdownMenuItem>
       {canManage ? <DropdownMenuItem onSelect={() => onNavigate(AppEndPoints.EXPENSES)}><Wallet className="text-rose-600" /><ActionLabel title="Record expense" detail="Petty cash or bills" /></DropdownMenuItem> : null}
-      {canManage ? <><DropdownMenuSeparator /><DropdownMenuItem disabled={loadingDemo} onSelect={() => void onLoadDemo()}><RefreshCw />Reload demo data</DropdownMenuItem></> : null}
     </DropdownMenuContent>
   </DropdownMenu>;
 }

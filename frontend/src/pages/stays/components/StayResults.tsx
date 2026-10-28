@@ -1,4 +1,4 @@
-import { KeyRound, LogIn, RefreshCw } from "lucide-react";
+import { KeyRound, LogIn } from "lucide-react";
 import RenderTable from "../../../components/tables/RenderTable";
 import TablePaginationControls from "../../../components/tables/TablePaginationControls";
 import LoadingTable from "../../../components/constants/LoadingTable";
@@ -12,7 +12,6 @@ const COLUMNS = ["Sr", "Stay ID", "Guest Profile", "Room / Cat", "Tariff Plan", 
 
 interface StayResultsProps {
   loading: boolean;
-  demoLoading: boolean;
   view: StayViewMode;
   tab: StayTabFilter;
   filtered: Stay[];
@@ -25,7 +24,6 @@ interface StayResultsProps {
   totalPages: number;
   totalCount: number;
   getBill: (stay: Stay) => BillBreakdown | null;
-  onLoadDemo: () => void;
   onNewCheckIn: () => void;
   onView: (stay: Stay) => void;
   onRoomService: () => void;
@@ -36,10 +34,10 @@ interface StayResultsProps {
 }
 
 export default function StayResults(props: StayResultsProps) {
-  const { loading, demoLoading, view, tab, filtered, pageItems, rooms, now, offset, pageNumber, pageSize, totalPages, totalCount, getBill, onLoadDemo, onNewCheckIn, onView, onRoomService, onCheckout, onDelete, onPageChange, onPageSizeChange } = props;
+  const { loading, view, tab, filtered, pageItems, rooms, now, offset, pageNumber, pageSize, totalPages, totalCount, getBill, onNewCheckIn, onView, onRoomService, onCheckout, onDelete, onPageChange, onPageSizeChange } = props;
   return <>
     {loading && <div className="py-16 text-center text-slate-400"><LoadingTable /></div>}
-    {!loading && filtered.length === 0 && <EmptyStays tab={tab} demoLoading={demoLoading} onLoadDemo={onLoadDemo} onNewCheckIn={onNewCheckIn} />}
+    {!loading && filtered.length === 0 && <EmptyStays tab={tab} onNewCheckIn={onNewCheckIn} />}
     {!loading && view === "GRID" && filtered.length > 0 && <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
       {pageItems.map((stay) => <StayCard key={stay.id} stay={stay} room={rooms.find((room) => room.id === stay.roomId)} bill={getBill(stay)} now={now} onView={() => onView(stay)} onRoomService={onRoomService} onCheckout={() => onCheckout(stay)} onDelete={() => onDelete(stay)} />)}
     </div>}
@@ -48,14 +46,13 @@ export default function StayResults(props: StayResultsProps) {
   </>;
 }
 
-function EmptyStays({ tab, demoLoading, onLoadDemo, onNewCheckIn }: { tab: StayTabFilter; demoLoading: boolean; onLoadDemo: () => void; onNewCheckIn: () => void }) {
+function EmptyStays({ tab, onNewCheckIn }: { tab: StayTabFilter; onNewCheckIn: () => void }) {
   const activeTab = tab === "ACTIVE";
   return <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-16 text-center">
     <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400"><KeyRound size={24} /></div>
     <h3 className="text-sm font-bold text-slate-800">{activeTab ? "No active in-house guests currently" : "No matching stay records found"}</h3>
-    <p className="mx-auto mt-1 max-w-sm text-xs text-slate-400">{activeTab ? "All rooms are currently vacant or turnover cleaning. Check in a guest or load demo data." : "Try clearing search filters or selecting another date range."}</p>
+    <p className="mx-auto mt-1 max-w-sm text-xs text-slate-400">{activeTab ? "All rooms are currently vacant or turnover cleaning." : "Try clearing search filters or selecting another date range."}</p>
     <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
-      <button type="button" onClick={onLoadDemo} disabled={demoLoading} className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-800 shadow-2xs transition-all hover:bg-slate-50 active:scale-[0.98]"><RefreshCw size={15} className={demoLoading ? "animate-spin" : ""} /><span>{demoLoading ? "Loading Demo..." : "Load Sample Demo Data"}</span></button>
       {activeTab && <button type="button" onClick={onNewCheckIn} className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 text-[13px] font-semibold text-white transition-colors duration-200 hover:bg-brand-500"><LogIn size={15} /><span>New Guest Check-In</span></button>}
     </div>
   </div>;

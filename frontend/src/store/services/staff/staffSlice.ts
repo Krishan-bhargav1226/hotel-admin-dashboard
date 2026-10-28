@@ -1,11 +1,4 @@
-import { hotelApi, run } from "../baseQuery";
-import {
-  DbKeys,
-  readList,
-  runExclusive,
-  writeList,
-} from "../../../utils/db/localDb";
-import { uid } from "../../../utils/helper/helper";
+import { hotelApi } from "../baseQuery";
 import type { ShiftRegister, StaffMember } from "../../../utils/interfaces/Interface";
 
 export interface CreateShiftRegisterPayload {
@@ -19,98 +12,143 @@ export interface CreateShiftRegisterPayload {
   handoverNotes: string;
 }
 
+const mapBackendStaff = (item: any): StaffMember => ({
+  id: String(item.id),
+  name: item.name,
+  role: item.role,
+  phone: item.phone,
+  email: item.email ?? undefined,
+  shift: item.shift || "FULL_DAY",
+  status: item.dutyStatus || "ON_DUTY",
+  joinedDate: item.joinedDate || (item.createdDate ? item.createdDate.slice(0, 10) : "2024-01-01"),
+  propertyId: item.propertyId ? String(item.propertyId) : undefined,
+  propertyName: item.propertyName ?? undefined,
+});
+
 const staffApi = hotelApi.injectEndpoints({
   endpoints: (builder) => ({
     getStaffList: builder.query<StaffMember[], void>({
-      queryFn: () =>
-        run(async () => {
-          const list = await readList<StaffMember>(DbKeys.STAFF);
-          return list;
-        }),
+      query: () => "/staff",
+      transformResponse: (response: any) => {
+        const rawList = Array.isArray(response) ? response : (response?.data ?? []);
+        return rawList.map(mapBackendStaff);
+      },
       providesTags: ["Staff"],
     }),
 
-    saveStaffMember: builder.mutation<StaffMember, Partial<StaffMember> & { name: string; role: StaffMember["role"]; phone: string }>({
-      queryFn: (payload) =>
-        run(() =>
-          runExclusive(async () => {
-            const list = await readList<StaffMember>(DbKeys.STAFF);
-            if (payload.id) {
-              const target = list.find((s) => s.id === payload.id);
-              if (!target) throw new Error("Staff member not found");
-              Object.assign(target, payload);
-              await writeList(DbKeys.STAFF, list);
-              return target;
-            } else {
-              const newStaff: StaffMember = {
-                id: uid(),
-                name: payload.name.trim(),
-                role: payload.role,
-                phone: payload.phone.trim(),
-                shift: payload.shift || "FULL_DAY",
-                status: payload.status || "ON_DUTY",
-                joinedDate: payload.joinedDate || new Date().toISOString().split("T")[0],
-              };
-              list.push(newStaff);
-              await writeList(DbKeys.STAFF, list);
-              return newStaff;
-            }
-          })
-        ),
+    saveStaffMember: builder.mutation<
+      StaffMember,
+      Partial<StaffMember> & { name: string; role: StaffMember["role"]; phone: string }
+    >({
+      query: (payload) => {
+        if (payload.id) {
+          return {
+            url: `/staff/${payload.id}`,
+            method: "PUT",
+            body: {
+              name: payload.name.trim(),
+              role: payload.role,
+              phone: payload.phone.trim(),
+              email: payload.email || null,
+              shift: payload.shift || "FULL_DAY",
+              dutyStatus: payload.status || "ON_DUTY",
+              joinedDate: payload.joinedDate || new Date().toISOString().slice(0, 10),
+              propertyId: payload.propertyId ? Number(payload.propertyId) : null,
+            },
+          };
+        } else {
+          return {
+            url: "/staff",
+            method: "POST",
+            body: {
+              name: payload.name.trim(),
+              role: payload.role,
+              phone: payload.phone.trim(),
+              email: payload.email || null,
+              shift: payload.shift || "FULL_DAY",
+              dutyStatus: payload.status || "ON_DUTY",
+              joinedDate: payload.joinedDate || new Date().toISOString().slice(0, 10),
+              propertyId: payload.propertyId ? Number(payload.propertyId) : null,
+            },
+          };
+        }
+      },
+      transformResponse: (res: any) => mapBackendStaff(res?.data ?? res),
       invalidatesTags: ["Staff"],
     }),
 
-    deleteStaffMember: builder.mutation<void, string>({
-      queryFn: (id) =>
-        run(() =>
-          runExclusive(async () => {
-            const list = await readList<StaffMember>(DbKeys.STAFF);
-            await writeList(
-              DbKeys.STAFF,
-              list.filter((s) => s.id !== id)
-            );
-          })
-        ),
+    deleteStaffMember: builder.mutation<boolean, string>({
+      query: (id) => ({
+        url: `/staff/${id}`,
+        method: "DELETE",
+      }),
+      transformResponse: () => true,
+      invalidatesTags: ["Staff"],
+    }),
+
+    toggleStaffDuty: builder.mutation<void, { id: string; status: StaffMember["status"] }>({
+      query: ({ id, status }) => ({
+        url: `/staff/${id}`,
+        method: "PUT",
+        body: { dutyStatus: status },
+      }),
       invalidatesTags: ["Staff"],
     }),
 
     getShiftRegisters: builder.query<ShiftRegister[], void>({
-      queryFn: () =>
-        run(async () => {
-          const list = await readList<ShiftRegister>(DbKeys.SHIFTS);
-          return list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-        }),
+      query: () => "/shift",
+      transformResponse: (response: any): ShiftRegister[] => {
+        const rawList = Array.isArray(response) ? response : (response?.data ?? []);
+        return rawList.map((item: any) => {
+          const opening = Number(item.openingCash) || 5000;
+          const collected = Number(item.cashCollected) || 0;
+          const expenses = Number(item.pettyExpensesPaid) || 0;
+          const closingExpected = Number(item.closingCashExpected ?? (opening + collected - expenses));
+          const counted = Number(item.actualCashCounted) || closingExpected;
+          const difference = Number(item.cashDifference ?? (counted - closingExpected));
+          return {
+            id: String(item.id),
+            shiftDate: item.shiftDate || new Date().toISOString().slice(0, 10),
+            shiftType: item.shiftType || "MORNING",
+            staffName: item.staffName || "Staff Member",
+            openingCash: opening,
+            cashCollected: collected,
+            pettyExpensesPaid: expenses,
+            closingCashExpected: closingExpected,
+            actualCashCounted: counted,
+            cashDifference: difference,
+            handoverNotes: item.handoverNotes || "",
+            createdAt: item.createdDate || new Date().toISOString(),
+          };
+        });
+      },
       providesTags: ["Shift"],
     }),
 
     createShiftRegister: builder.mutation<ShiftRegister, CreateShiftRegisterPayload>({
-      queryFn: (payload) =>
-        run(() =>
-          runExclusive(async () => {
-            const list = await readList<ShiftRegister>(DbKeys.SHIFTS);
-            const closingCashExpected =
-              payload.openingCash + payload.cashCollected - payload.pettyExpensesPaid;
-            const cashDifference = payload.actualCashCounted - closingCashExpected;
-
-            const shift: ShiftRegister = {
-              id: uid(),
-              shiftDate: payload.shiftDate,
-              shiftType: payload.shiftType,
-              staffName: payload.staffName.trim(),
-              openingCash: payload.openingCash,
-              cashCollected: payload.cashCollected,
-              pettyExpensesPaid: payload.pettyExpensesPaid,
-              closingCashExpected,
-              actualCashCounted: payload.actualCashCounted,
-              cashDifference,
-              handoverNotes: payload.handoverNotes.trim(),
-              createdAt: new Date().toISOString(),
-            };
-
-            await writeList(DbKeys.SHIFTS, [shift, ...list]);
-            return shift;
-          })
-        ),
+      query: (payload) => ({
+        url: "/shift",
+        method: "POST",
+        body: payload,
+      }),
+      transformResponse: (_res: any, _meta: any, arg: CreateShiftRegisterPayload): ShiftRegister => {
+        const closing = arg.openingCash + arg.cashCollected - arg.pettyExpensesPaid;
+        const diff = arg.actualCashCounted - closing;
+        return {
+          id: `sr-${Date.now()}`,
+          shiftDate: arg.shiftDate,
+          shiftType: arg.shiftType,
+          staffName: arg.staffName,
+          openingCash: arg.openingCash,
+          cashCollected: arg.cashCollected,
+          pettyExpensesPaid: arg.pettyExpensesPaid,
+          closingCashExpected: closing,
+          actualCashCounted: arg.actualCashCounted,
+          cashDifference: diff,
+          handoverNotes: arg.handoverNotes,
+          createdAt: new Date().toISOString(),
+        };
+      },
       invalidatesTags: ["Shift"],
     }),
   }),
@@ -120,6 +158,9 @@ export const {
   useGetStaffListQuery,
   useSaveStaffMemberMutation,
   useDeleteStaffMemberMutation,
+  useToggleStaffDutyMutation,
   useGetShiftRegistersQuery,
   useCreateShiftRegisterMutation,
 } = staffApi;
+
+export default staffApi;

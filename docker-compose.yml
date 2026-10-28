@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: hotel
+      POSTGRES_PASSWORD: hotel
+      POSTGRES_DB: hotel
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hotel -d hotel"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./HotelBackend
+      dockerfile: WebApi/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Host=db;Port=5432;Database=hotel;Username=hotel;Password=hotel
+      JwtSettings__SecretKey: change-this-development-signing-key-32
+      JwtSettings__Issuer: http://localhost:8080
+      JwtSettings__Audience: http://localhost:8080
+      SeedAdmin__Email: admin@hotel.local
+      SeedAdmin__Password: ChangeMe@123
+      SeedAdmin__FirstName: Admin
+      SeedAdmin__LastName: User
+      Cors__Origins__0: http://localhost:5173
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8080/api
+    ports:
+      - "5173:80"
+    depends_on:
+      - api

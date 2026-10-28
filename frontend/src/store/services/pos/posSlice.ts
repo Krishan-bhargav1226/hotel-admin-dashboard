@@ -1,19 +1,9 @@
-import { hotelApi, run } from "../baseQuery";
-import {
-  DbKeys,
-  readList,
-  runExclusive,
-  writeList,
-} from "../../../utils/db/localDb";
-import { uid } from "../../../utils/helper/helper";
+import { hotelApi } from "../baseQuery";
 import type {
-  ExtraCharge,
   MenuItem,
   PaymentMode,
-  Room,
   ServiceOrder,
   ServiceOrderItem,
-  Stay,
 } from "../../../utils/interfaces/Interface";
 
 export interface CreateServiceOrderPayload {
@@ -25,142 +15,159 @@ export interface CreateServiceOrderPayload {
   notes?: string;
 }
 
+const mapBackendPosItem = (item: any): MenuItem => ({
+  id: String(item.id),
+  name: item.name,
+  category: item.category,
+  price: Number(item.price) || 0,
+  isAvailable: item.isAvailable !== false,
+  description: item.description ?? undefined,
+});
+
 const posApi = hotelApi.injectEndpoints({
   endpoints: (builder) => ({
     getMenuItems: builder.query<MenuItem[], void>({
-      queryFn: () =>
-        run(async () => {
-          const items = await readList<MenuItem>(DbKeys.MENU_ITEMS);
-          return items;
-        }),
+      query: () => "/pos/item",
+      transformResponse: (response: any) => {
+        const rawList = Array.isArray(response) ? response : (response?.data ?? []);
+        return rawList.map(mapBackendPosItem);
+      },
       providesTags: ["MenuItem"],
     }),
 
-    saveMenuItem: builder.mutation<MenuItem, Partial<MenuItem> & { name: string; price: number; category: MenuItem["category"] }>({
-      queryFn: (payload) =>
-        run(() =>
-          runExclusive(async () => {
-            const items = await readList<MenuItem>(DbKeys.MENU_ITEMS);
-            if (payload.id) {
-              const target = items.find((i) => i.id === payload.id);
-              if (!target) throw new Error("Item not found");
-              Object.assign(target, payload);
-              await writeList(DbKeys.MENU_ITEMS, items);
-              return target;
-            } else {
-              const newItem: MenuItem = {
-                id: uid(),
-                name: payload.name.trim(),
-                category: payload.category,
-                price: Number(payload.price),
-                isAvailable: payload.isAvailable ?? true,
-                description: payload.description?.trim(),
-              };
-              items.push(newItem);
-              await writeList(DbKeys.MENU_ITEMS, items);
-              return newItem;
-            }
-          })
-        ),
+    saveMenuItem: builder.mutation<
+      MenuItem,
+      Partial<MenuItem> & { name: string; price: number; category: MenuItem["category"] }
+    >({
+      query: (payload) => {
+        if (payload.id) {
+          return {
+            url: `/pos/item/${payload.id}`,
+            method: "PUT",
+            body: {
+              name: payload.name.trim(),
+              category: payload.category,
+              price: Number(payload.price),
+              isAvailable: payload.isAvailable ?? true,
+              description: payload.description?.trim() || null,
+            },
+          };
+        } else {
+          return {
+            url: "/pos/item",
+            method: "POST",
+            body: {
+              name: payload.name.trim(),
+              category: payload.category,
+              price: Number(payload.price),
+              isAvailable: payload.isAvailable ?? true,
+              description: payload.description?.trim() || null,
+            },
+          };
+        }
+      },
+      transformResponse: (res: any) => mapBackendPosItem(res?.data ?? res),
       invalidatesTags: ["MenuItem"],
     }),
 
-    deleteMenuItem: builder.mutation<void, string>({
-      queryFn: (id) =>
-        run(() =>
-          runExclusive(async () => {
-            const items = await readList<MenuItem>(DbKeys.MENU_ITEMS);
-            await writeList(
-              DbKeys.MENU_ITEMS,
-              items.filter((i) => i.id !== id)
-            );
-          })
-        ),
+    deleteMenuItem: builder.mutation<boolean, string>({
+      query: (id) => ({
+        url: `/pos/item/${id}`,
+        method: "DELETE",
+      }),
+      transformResponse: () => true,
       invalidatesTags: ["MenuItem"],
     }),
 
     getServiceOrders: builder.query<ServiceOrder[], void>({
-      queryFn: () =>
-        run(async () => {
-          const orders = await readList<ServiceOrder>(DbKeys.SERVICE_ORDERS);
-          return orders.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-        }),
+      query: () => "/pos/order",
+      transformResponse: (response: any) => {
+        const rawList = Array.isArray(response) ? response : (response?.data ?? []);
+        return rawList.map((item: any) => ({
+          id: String(item.id),
+          orderNo: item.orderNo || `ORD-${item.id}`,
+          roomId: String(item.roomId),
+          roomNumber: item.roomNumber || String(item.roomId),
+          stayId: item.stayId ? String(item.stayId) : undefined,
+          guestName: item.guestName || "Guest",
+          items: (item.items || []).map((i: any) => ({
+            menuItemId: String(i.menuItemId),
+            name: i.name,
+            price: Number(i.price),
+            quantity: Number(i.quantity),
+          })),
+          subtotal: Number(item.subtotal) || 0,
+          taxAmount: Number(item.taxAmount) || 0,
+          totalAmount: Number(item.totalAmount) || 0,
+          status: item.status || "PENDING",
+          billedToRoom: Boolean(item.billedToRoom),
+          paymentMode: item.paymentMode ?? undefined,
+          notes: item.notes ?? undefined,
+          createdAt: item.createdDate || new Date().toISOString(),
+        }));
+      },
       providesTags: ["ServiceOrder"],
     }),
 
     createServiceOrder: builder.mutation<ServiceOrder, CreateServiceOrderPayload>({
-      queryFn: (payload) =>
-        run(() =>
-          runExclusive(async () => {
-            const orders = await readList<ServiceOrder>(DbKeys.SERVICE_ORDERS);
-            const rooms = await readList<Room>(DbKeys.ROOMS);
-            const room = rooms.find((r) => r.id === payload.roomId);
-            if (!room) throw new Error("Room not found");
-
-            const stays = await readList<Stay>(DbKeys.STAYS);
-            const activeStay = stays.find((s) => s.roomId === payload.roomId && s.status === "ACTIVE");
-
-            const subtotal = payload.items.reduce((s, it) => s + it.price * it.quantity, 0);
-            const taxAmount = Math.round(subtotal * 0.05); // 5% F&B GST
-            const totalAmount = subtotal + taxAmount;
-            const now = new Date().toISOString();
-            const orderNo = `ORD-${String(orders.length + 1).padStart(4, "0")}`;
-
-            const order: ServiceOrder = {
-              id: uid(),
-              orderNo,
-              roomId: room.id,
-              roomNumber: room.number,
-              stayId: activeStay?.id,
-              guestName: activeStay?.guestName || "Walk-in Guest",
-              items: payload.items,
-              subtotal,
-              taxAmount,
-              totalAmount,
-              billedToRoom: payload.billedToRoom,
-              paymentMode: payload.billedToRoom ? undefined : payload.paymentMode || "CASH",
-              status: "PREPARING",
-              notes: payload.notes,
-              createdAt: now,
-            };
-
-            // If billed to room and there is an active stay, append to extraCharges
-            if (payload.billedToRoom && activeStay) {
-              const summary = payload.items.map((it) => `${it.quantity}x ${it.name}`).join(", ");
-              const extra: ExtraCharge = {
-                id: uid(),
-                label: `Room Service (${orderNo}: ${summary.slice(0, 35)}...)`,
-                amount: totalAmount,
-              };
-              activeStay.extraCharges = [...activeStay.extraCharges, extra];
-              activeStay.updatedAt = now;
-              await writeList(DbKeys.STAYS, stays);
-            }
-
-            await writeList(DbKeys.SERVICE_ORDERS, [order, ...orders]);
-            return order;
-          })
-        ),
-      invalidatesTags: ["ServiceOrder", "Stay"],
+      query: (payload) => ({
+        url: "/pos/order",
+        method: "POST",
+        body: {
+          roomId: Number(payload.roomId),
+          stayId: payload.stayId ? Number(payload.stayId) : null,
+          items: payload.items.map((i) => ({
+            menuItemId: Number(i.menuItemId),
+            name: i.name,
+            price: Number(i.price),
+            quantity: Number(i.quantity),
+          })),
+          billedToRoom: payload.billedToRoom,
+          paymentMode: payload.paymentMode,
+          notes: payload.notes?.trim() || null,
+        },
+      }),
+      transformResponse: (_res: any, _meta: any, arg: CreateServiceOrderPayload): ServiceOrder => {
+        const subtotal = arg.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+        return {
+          id: String(_res?.data ?? Date.now()),
+          orderNo: `ORD-${Date.now().toString().slice(-4)}`,
+          roomId: arg.roomId,
+          roomNumber: arg.roomId,
+          stayId: arg.stayId,
+          guestName: "In-House Guest",
+          items: arg.items,
+          subtotal,
+          taxAmount: Math.round(subtotal * 0.05),
+          totalAmount: Math.round(subtotal * 1.05),
+          status: "DELIVERED",
+          billedToRoom: arg.billedToRoom,
+          paymentMode: arg.paymentMode,
+          notes: arg.notes,
+          createdAt: new Date().toISOString(),
+        };
+      },
+      invalidatesTags: ["ServiceOrder", "Stay", "Report"],
     }),
 
     updateServiceOrderStatus: builder.mutation<
-      ServiceOrder,
+      void,
       { id: string; status: ServiceOrder["status"] }
     >({
-      queryFn: ({ id, status }) =>
-        run(() =>
-          runExclusive(async () => {
-            const orders = await readList<ServiceOrder>(DbKeys.SERVICE_ORDERS);
-            const order = orders.find((o) => o.id === id);
-            if (!order) throw new Error("Order not found");
+      query: ({ id, status }) => ({
+        url: `/pos/order/${id}/status`,
+        method: "PUT",
+        body: { status },
+      }),
+      invalidatesTags: ["ServiceOrder", "Stay", "Report"],
+    }),
 
-            order.status = status;
-            await writeList(DbKeys.SERVICE_ORDERS, orders);
-            return order;
-          })
-        ),
-      invalidatesTags: ["ServiceOrder"],
+    deleteServiceOrder: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/pos/order/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["ServiceOrder", "Stay", "Report"],
     }),
   }),
 });
@@ -172,4 +179,7 @@ export const {
   useGetServiceOrdersQuery,
   useCreateServiceOrderMutation,
   useUpdateServiceOrderStatusMutation,
+  useDeleteServiceOrderMutation,
 } = posApi;
+
+export default posApi;

@@ -28,14 +28,14 @@ export function LiveFolioPreviewCard({ form }: LiveFolioPreviewCardProps) {
           {form.hotelName || "Grand Horizon Palace & Spa"}
         </div>
         <p className="mt-1 text-[11px] text-slate-500 leading-snug">
-          {form.address || "Palace Road, Near City Palace, Jaipur, Rajasthan, 302002"}
+          {form.address || "Hotel address"}
           <br />
-          GSTIN: <strong>{form.gstin || "08AAAAA0000A1Z5"}</strong> · State: {form.stateCode || "08 - Rajasthan"}
+          GSTIN: <strong>{form.gstin || "—"}</strong> · State: {form.stateCode || "—"}
         </p>
 
         <div className="mt-3 flex items-center justify-between border-t border-slate-200 pt-2 text-[11px] font-mono dark:border-slate-800">
-          <span className="text-slate-500">Invoice Sample:</span>
-          <strong className="text-slate-900 dark:text-white">{form.invoicePrefix || "GH-INV/2026/"}0482</strong>
+          <span className="text-slate-500">Invoice preview:</span>
+          <strong className="text-slate-900 dark:text-white">{form.invoicePrefix || "INV/"}</strong>
         </div>
 
         <div className="mt-2 flex items-center justify-between text-[11px] font-mono">

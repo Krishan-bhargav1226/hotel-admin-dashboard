@@ -33,6 +33,6 @@ export const APP_TEXT = {
     HOTEL_INFO: "Hotel Info & Branding",
     ROOM_TYPES: "Room Categories",
     RATE_PLANS: "Tariff & Rate Plans",
-    BACKUP: "Data Backup & Demo Data",
+    BACKUP: "Operations report",
   },
 };

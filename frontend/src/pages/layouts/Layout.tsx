@@ -9,6 +9,7 @@ import { ErrorBoundary } from "../../components/ErrorBoundary";
 import Breadcrumbs from "./Breadcrumbs";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
+import GeminiChatWidget from "../../components/chat/GeminiChatWidget";
 
 const drawerWidthOpen = 248;
 const drawerWidthClosed = 76;
@@ -161,6 +162,7 @@ export default function Layout() {
             )}
           </main>
         </div>
+        <GeminiChatWidget pageContext={location.pathname} />
       </div>
     </TooltipProvider>
   );

@@ -15,7 +15,6 @@ import StayFilters from "./components/StayFilters";
 import StayResults from "./components/StayResults";
 import { useDeleteStayMutation, useGetStaysQuery } from "../../store/services/stay/staySlice";
 import { useGetRoomsQuery } from "../../store/services/room/roomSlice";
-import { useLoadDemoDataMutation } from "../../store/services/settings/settingsSlice";
 import { useNow } from "../../hooks/useNow";
 import { useClientPagination } from "../../hooks/useClientPagination";
 import { ShowConfirmModal } from "../../hooks/useShowConfirmModal";
@@ -36,7 +35,6 @@ export default function Stays() {
   const { data: stays = [], isLoading } = useGetStaysQuery();
   const { data: rooms = [] } = useGetRoomsQuery();
   const [deleteStay] = useDeleteStayMutation();
-  const [loadDemo, { isLoading: loadingDemo }] = useLoadDemoDataMutation();
   const [search, setSearch] = useState("");
   const [tabFilter, setTabFilter] = useState<StayTabFilter>("ACTIVE");
   const [viewMode, setViewMode] = useState<StayViewMode>("GRID");
@@ -80,11 +78,6 @@ export default function Stays() {
     catch (error) { toast.error(getErrorMessage(error)); }
   };
 
-  const handleLoadDemo = async () => {
-    try { await loadDemo().unwrap(); toast.success("Complete hotel management demo data loaded!"); }
-    catch (error) { toast.error(getErrorMessage(error)); }
-  };
-
   return <MainContainer>
     <PageTitle title="In-house stays" subtitle="Current guests, running folios, and departures that need attention." actions={<>
       <Button variant="outline" size="sm" onClick={() => printDocument(exportRows, EXCEL_COLUMNS, "In-House Stays")}><Printer size={16} aria-hidden="true" /> Print PDF</Button>
@@ -94,7 +87,7 @@ export default function Stays() {
     <StayMetrics activeRooms={activeStays.length} guestCount={totalInHouseHeadcount} liveFolioTotal={totalLiveFolioSum} departures={departingStays.length} onShowDepartures={() => setTabFilter("DEPARTING_TODAY")} />
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-panel sm:p-6">
       <StayFilters tab={tabFilter} setTab={setTabFilter} view={viewMode} setView={setViewMode} search={search} setSearch={setSearch} range={range} setRange={setRange} activeCount={activeStays.length} departingCount={departingStays.length} completedCount={stays.filter((stay) => stay.status === "COMPLETED").length} allCount={stays.length} resetPage={pg.reset} />
-      <StayResults loading={isLoading} demoLoading={loadingDemo} view={viewMode} tab={tabFilter} filtered={filtered} pageItems={pg.pageItems} rooms={rooms} now={now} offset={pg.offset} pageNumber={pg.pageNumber} pageSize={pg.pageSize} totalPages={pg.totalPages} totalCount={pg.totalCount} getBill={getStayBill} onLoadDemo={handleLoadDemo} onNewCheckIn={() => navigate(AppEndPoints.CHECK_IN)} onView={(stay) => navigate(buildPath(AppEndPoints.STAY_DETAILS, stay.id))} onRoomService={() => navigate(AppEndPoints.POS_SERVICES)} onCheckout={setCheckoutStay} onDelete={handleDelete} onPageChange={pg.setPageNumber} onPageSizeChange={pg.setPageSize} />
+      <StayResults loading={isLoading} view={viewMode} tab={tabFilter} filtered={filtered} pageItems={pg.pageItems} rooms={rooms} now={now} offset={pg.offset} pageNumber={pg.pageNumber} pageSize={pg.pageSize} totalPages={pg.totalPages} totalCount={pg.totalCount} getBill={getStayBill} onNewCheckIn={() => navigate(AppEndPoints.CHECK_IN)} onView={(stay) => navigate(buildPath(AppEndPoints.STAY_DETAILS, stay.id))} onRoomService={() => navigate(AppEndPoints.POS_SERVICES)} onCheckout={setCheckoutStay} onDelete={handleDelete} onPageChange={pg.setPageNumber} onPageSizeChange={pg.setPageSize} />
     </div>
     <CheckoutDialog stay={checkoutStay} onClose={() => setCheckoutStay(null)} />
   </MainContainer>;

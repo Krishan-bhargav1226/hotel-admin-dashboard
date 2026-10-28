@@ -26,7 +26,14 @@ export default function Sidebar({ sidebarOpen = true, onNavigate, onToggle }: Si
   const { data: settings } = useGetSettingsQuery();
   const { role } = useDeskRole();
   const hotelName = settings?.hotelName || "Grand Horizon";
-  const roleLabel = role === "RECEPTION" ? "Front desk" : role === "ADMIN" ? "This hotel" : "Chain office";
+  const roleLabel =
+    role === "RECEPTION"
+      ? "Front desk"
+      : role === "ADMIN"
+      ? "This hotel"
+      : role === "USER"
+      ? "Registered user"
+      : "Chain office";
 
   const isActive = (link: string) =>
     link === "/" ? location.pathname === "/" : location.pathname.startsWith(link);
