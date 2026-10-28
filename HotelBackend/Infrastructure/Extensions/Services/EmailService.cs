@@ -1,4 +1,4 @@
-﻿using Application.Interfaces.Services;
+using Application.Interfaces.Services;
 using Microsoft.Extensions.Configuration;
 using System.Net;
 using System.Net.Mail;
@@ -18,37 +18,41 @@ public class EmailService : IEmailService
     {
         try
         {
+            var senderEmail = _configuration["EmailSettings:Username"] 
+                ?? Environment.GetEnvironmentVariable("SMTP_USERNAME") 
+                ?? "no-reply@hotel.local";
+            string? senderPassword = _configuration["EmailSettings:Password"] 
+                ?? Environment.GetEnvironmentVariable("SMTP_PASSWORD") 
+                ?? "";
+            var smtp = _configuration["EmailSettings:SmtpServer"] 
+                ?? Environment.GetEnvironmentVariable("SMTP_SERVER") 
+                ?? "smtp.gmail.com";
+            var portString = _configuration["EmailSettings:Port"] 
+                ?? Environment.GetEnvironmentVariable("SMTP_PORT");
+            var port = int.TryParse(portString, out var p) ? p : 587;
+            var displayName = _configuration["EmailSettings:DisplayName"] 
+                ?? "Grand Horizon Luxury Hotels";
 
-
-            var senderEmail = _configuration["EmailSettings:Username"];
-            string? senderPassword = _configuration["EmailSettings:Password"];
-            var smtp = _configuration["EmailSettings:SmtpServer"];
-            var port = int.Parse(_configuration["EmailSettings:Port"]);
-            var displayName = _configuration["EmailSettings:DisplayName"];
-
-            SmtpClient smtpClient = new SmtpClient(smtp)
+            using var smtpClient = new SmtpClient(smtp)
             {
                 Port = port,
                 Credentials = new NetworkCredential(senderEmail, senderPassword),
-                EnableSsl = true
-
+                EnableSsl = true,
+                Timeout = 15000
             };
 
-            using (MailMessage message = new MailMessage())
-            {
-                message.From = new MailAddress(senderEmail,displayName);
-                message.To.Add(recipientEmail);
-                message.Subject = subject;
-                message.Body = htmlbody;
-                message.IsBodyHtml = true;
+            using var message = new MailMessage();
+            message.From = new MailAddress(senderEmail, displayName);
+            message.To.Add(recipientEmail);
+            message.Subject = subject;
+            message.Body = htmlbody;
+            message.IsBodyHtml = true;
 
-                await smtpClient.SendMailAsync(message);
-            }
-
+            await smtpClient.SendMailAsync(message);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-
+            Console.WriteLine($"[SMTP ERROR]: Failed sending email to {recipientEmail}: {ex.Message}");
             throw;
         }
     }

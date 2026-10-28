@@ -1,4 +1,4 @@
-﻿using Application.Dto.Users.GetUserDtos;
+using Application.Dto.Users.GetUserDtos;
 using AutoMapper;
 using Domain.Common.Enums.Users;
 using Domain.Entities.ApplicationUsers;
@@ -38,10 +38,10 @@ internal class GetAllUserQueryHandler : IRequestHandler<GetAllUserQuery, Paginat
                               .Include(x => x.UserAddress).ThenInclude(x => x.Country)
                               .Include(x => x.UserProfile)
                               .Include(x => x.UserRoles).ThenInclude(x => x.Role)
-                              .Where(u => u.UserType == UserType.WebUser &&
-                              (string.IsNullOrEmpty(search.Name) || u.FirstName.ToLower().Contains(search.Name.ToLower()))
-                               && (string.IsNullOrEmpty(search.MobileNumber) || u.PhoneNumber.Contains(search.MobileNumber))
-                               && (string.IsNullOrEmpty(search.Email) || u.Email.ToLower().Contains(search.Email.ToLower())))
+                              .Where(u =>
+                              (string.IsNullOrEmpty(search.Name) || (u.FirstName != null && u.FirstName.ToLower().Contains(search.Name.ToLower())) || (u.LastName != null && u.LastName.ToLower().Contains(search.Name.ToLower())))
+                               && (string.IsNullOrEmpty(search.MobileNumber) || (u.PhoneNumber != null && u.PhoneNumber.Contains(search.MobileNumber)))
+                               && (string.IsNullOrEmpty(search.Email) || (u.Email != null && u.Email.ToLower().Contains(search.Email.ToLower()))))
                               .AsQueryable();
 
         var count = await queryable.CountAsync();

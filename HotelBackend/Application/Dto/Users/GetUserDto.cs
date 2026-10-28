@@ -1,4 +1,4 @@
-﻿using Application.Common.Mappings.Commons;
+using Application.Common.Mappings.Commons;
 using Application.Dto.Users.UserRoles;
 using Domain.Entities.ApplicationUsers;
 
@@ -6,6 +6,7 @@ namespace Application.Dto.Users.GetUserDtos;
 
 public class GetUserDto : IMapFrom<User>
 {
+    public string Id { get; set; } = string.Empty;
     public string FirstName { get; set; }
     public string? LastName { get; set; }
     public string Email { get; set; }

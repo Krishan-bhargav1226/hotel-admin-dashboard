@@ -1,4 +1,7 @@
-﻿using Application.Features.Commons;
+using Application.Common.Behaviors;
+using Application.Features.Commons;
+using FluentValidation;
+using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
 
@@ -10,11 +13,13 @@ public static class ServiceCollectionExtension
     {
         services.AddMapping();
         services.AddMediator();
+        services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
+        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
         services.AddScoped<ValidationManager>();
     }
     public static void AddMapping(this IServiceCollection services)
     {
-        services.AddAutoMapper(Assembly.GetExecutingAssembly());
+        services.AddAutoMapper(cfg => { }, Assembly.GetExecutingAssembly());
     }
     public static void AddMediator(this IServiceCollection services)
     {

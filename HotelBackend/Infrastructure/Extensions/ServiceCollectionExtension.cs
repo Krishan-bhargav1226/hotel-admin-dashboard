@@ -1,4 +1,4 @@
-﻿using Application.Interfaces.Repositories.Payments;
+using Application.Interfaces.Repositories.Payments;
 using Application.Interfaces.Services;
 using Infrastructure.Extensions.Services;
 using MediatR;
@@ -15,10 +15,13 @@ public static class ServiceCollectionExtension
 
     public static void AddService(this IServiceCollection services)
     {
+        services.AddHttpClient();
         services
             .AddTransient<IMediator, Mediator>()
         .AddTransient<IEmailService, EmailService>()
         .AddTransient<IJWTService, JWTService>()
-        .AddTransient<IPaymentService, PaymentService>();
+        .AddTransient<IPaymentService, PaymentService>()
+        .AddTransient<IHotelGroundingService, HotelGroundingService>()
+        .AddTransient<IGeminiChatService, GeminiChatService>();
     }
 }

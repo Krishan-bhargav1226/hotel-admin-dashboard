@@ -33,17 +33,30 @@ public class UserRoleRepository : IUserRoleRepository
     {
         await DeleteExistingUserRoles(userId);
 
-        foreach (var roleId in roles.Distinct())
+        foreach (var roleIdentifier in roles.Distinct())
         {
+            if (string.IsNullOrWhiteSpace(roleIdentifier)) continue;
+
+            var role = await _context.Roles.FirstOrDefaultAsync(r => 
+                r.Id == roleIdentifier || 
+                r.Name.ToLower() == roleIdentifier.ToLower());
+
+            if (role == null)
+            {
+                role = new Role { Name = roleIdentifier, OrganizationId = 1 };
+                await _context.Roles.AddAsync(role);
+                await _context.SaveChangesAsync();
+            }
+
             var data = new UserRole
             {
                 UserId = userId,
-                RoleId = roleId,
+                RoleId = role.Id,
             };
 
             await _context.UserRoles.AddAsync(data);
-            await _context.SaveChangesAsync();
         }
+        await _context.SaveChangesAsync();
     }
     private async Task DeleteExistingUserRoles(string userId)
     {

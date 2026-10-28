@@ -1,4 +1,4 @@
-﻿using Application.Features.Menus.Commands;
+using Application.Features.Menus.Commands;
 using Application.Features.Menus.Queries;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -26,6 +26,8 @@ public class MenuController : ControllerBase
 
 
     [HttpGet]
+    [HttpGet("all")]
+    [HttpGet("getall")]
     public async Task<IActionResult> GetMenu()
     {
         var data = await _mediator.Send(new GetMenuQuery());

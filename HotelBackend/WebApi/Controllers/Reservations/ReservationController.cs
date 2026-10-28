@@ -46,6 +46,8 @@ public class ReservationController : ControllerBase
     }
 
     [HttpGet]
+    [HttpGet("all")]
+    [HttpGet("getall")]
     public async Task<ActionResult> GetAll([FromQuery] GetAllReservationQuery query)
     {
         var data = await _mediator.Send(query);

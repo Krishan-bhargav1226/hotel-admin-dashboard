@@ -45,6 +45,8 @@ public class GuestController : ControllerBase
     }
 
     [HttpGet]
+    [HttpGet("all")]
+    [HttpGet("getall")]
     public async Task<ActionResult> GetAll([FromQuery] GetAllGuestQuery query)
     {
         var data = await _mediator.Send(query);

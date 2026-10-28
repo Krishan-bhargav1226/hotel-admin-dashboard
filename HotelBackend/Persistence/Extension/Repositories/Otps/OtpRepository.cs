@@ -25,7 +25,9 @@ public class OtpRepository : IOtpRepository
             ForOtp = forOtp,
             OtpSentOn = otpSentOn,
             IsChecked = false,
-            TimesChecked = 0
+            TimesChecked = 0,
+            OrganizationId = 1,
+            CreatedDate = DateTime.UtcNow
         };
 
         await _unitOfWork.Repository<OTP>().AddAsync(otpEntity);

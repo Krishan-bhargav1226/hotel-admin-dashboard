@@ -1,4 +1,4 @@
-﻿using Application.Features.Menus.MenuTypes.Commands;
+using Application.Features.Menus.MenuTypes.Commands;
 using Application.Features.Menus.MenuTypes.Queries;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -26,6 +26,8 @@ public class MenuTypeController : ControllerBase
 
 
     [HttpGet]
+    [HttpGet("all")]
+    [HttpGet("getall")]
     public async Task<IActionResult> GetMenuType()
     {
         var data = await _mediator.Send(new GetMenuTypeQuery());

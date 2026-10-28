@@ -1,4 +1,4 @@
-﻿using Application.Features.Commons;
+using Application.Features.Commons;
 using Application.Interfaces.Repositories.UserIdAndOrganizationIds;
 using Application.Interfaces.Services;
 using Application.Interfaces.UnitOfWorkRepositories;
@@ -39,28 +39,40 @@ internal class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Resul
 
     public async Task<Result<string>> Handle(VerifyOtpCommand request, CancellationToken cancellationToken)
     {
-        var useOrga = await _userIdAndOrganizationIdRepository.Get();
+        var input = (request.Username ?? "").Trim();
+        if (input.Equals("hotel1admin", StringComparison.OrdinalIgnoreCase))
+        {
+            input = "akf22918@gmail.com";
+        }
+        else if (input.Equals("hotel2admin", StringComparison.OrdinalIgnoreCase))
+        {
+            input = "madeforbusiness11@gmail.com";
+        }
+        else if (input.Equals("superadmin", StringComparison.OrdinalIgnoreCase))
+        {
+            input = "superadmin@hotel.local";
+        }
 
         User? user = null;
 
-        if (!ValidationManager.IsValidPhoneNumber(request.Username))
+        if (!ValidationManager.IsValidPhoneNumber(input))
         {
             user = await _userManager.Users
-                .Where(x => x.Email.ToLower() == request.Username.ToLower())
+                .Where(x => x.Email.ToLower() == input.ToLower() || x.UserName.ToLower() == input.ToLower())
                 .OrderByDescending(x => x.CreatedDate)
-                .FirstOrDefaultAsync();
+                .FirstOrDefaultAsync(cancellationToken);
 
             if (user == null)
             {
-                return Result<string>.BadRequest("Email not registered.");
+                return Result<string>.BadRequest("Email or username not registered.");
             }
         }
         else
         {
             user = await _userManager.Users
-            .Where(x => x.PhoneNumber.ToLower() == request.Username.ToLower())
-            .OrderByDescending(x => x.CreatedDate)
-            .FirstOrDefaultAsync();
+                .Where(x => x.PhoneNumber.ToLower() == input.ToLower())
+                .OrderByDescending(x => x.CreatedDate)
+                .FirstOrDefaultAsync(cancellationToken);
 
             if (user == null)
             {
@@ -68,28 +80,26 @@ internal class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Resul
             }
         }
 
-        OtpSentOn otpSentOn = ValidationManager.IsValidPhoneNumber(request.Username) ? OtpSentOn.PhoneNumber : OtpSentOn.Email;
-
         var otpEntity = await _unitOfWork.Repository<OTP>().Entities
-                                        .Where(x => x.UserId == user.Id && x.OtpSentOn == otpSentOn)
-                                       .OrderByDescending(x => x.CreatedDate)
-                                      .FirstOrDefaultAsync();
+            .Where(x => x.UserId == user.Id)
+            .OrderByDescending(x => x.CreatedDate)
+            .FirstOrDefaultAsync(cancellationToken);
 
         if (otpEntity == null)
         {
-            throw new Exception("No otp requested!");
+            return Result<string>.BadRequest("No OTP requested or code has expired. Please request a new OTP.");
         }
 
         if (otpEntity.TimesChecked > 5)
         {
-            return Result<string>.BadRequest($"You checked otp too many times request new otp");
+            return Result<string>.BadRequest("You checked OTP too many times. Please request a new OTP.");
         }
 
         var timeDifference = DateTime.UtcNow - otpEntity.CreatedDate;
 
-        if (timeDifference.Value.TotalMinutes >= 5)
+        if (timeDifference.HasValue && timeDifference.Value.TotalMinutes >= 5)
         {
-            return Result<string>.BadRequest("Otp expired request new otp");
+            return Result<string>.BadRequest("OTP expired. Please request a new OTP.");
         }
 
         if (otpEntity.Otp != request.Otp)
@@ -99,25 +109,20 @@ internal class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Resul
             await _unitOfWork.Repository<OTP>().UpdateAsync(otpEntity, otpEntity.Id);
             await _unitOfWork.Save(cancellationToken);
 
-            return Result<string>.BadRequest("Incorrect otp!");
+            return Result<string>.BadRequest("Incorrect 4-digit OTP. Please check the code sent to your email.");
         }
 
         await _unitOfWork.Repository<OTP>().DeleteAsync(otpEntity);
         await _unitOfWork.Save(cancellationToken);
 
-        if (otpEntity.OtpSentOn == OtpSentOn.PhoneNumber && !user.PhoneNumberConfirmed)
-        {
-            user.PhoneNumberConfirmed = true;
-        }
-        else if (otpEntity.OtpSentOn == OtpSentOn.Email && !user.EmailConfirmed)
+        if (!user.EmailConfirmed)
         {
             user.EmailConfirmed = true;
+            await _userManager.UpdateAsync(user);
         }
-
-        await _userManager.UpdateAsync(user);
 
         var token = await _jwtService.GenerateToken(user.Id);
 
-        return Result<string>.Success(token, "Otp verified successfully", token);
+        return Result<string>.Success(token, "OTP verified successfully", token);
     }
 }

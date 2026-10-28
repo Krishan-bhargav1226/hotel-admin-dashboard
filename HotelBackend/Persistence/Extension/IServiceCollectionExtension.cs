@@ -63,22 +63,10 @@ public static class IServiceCollectionExtension
 
     public static void AddDbContext(this IServiceCollection services, IConfiguration configuration, Microsoft.AspNetCore.Hosting.IWebHostEnvironment environment)
     {
-        try
-        {
-            string connectionString = environment.IsDevelopment()
-                 ? configuration.GetConnectionString("DefaultConnection")
-                 : configuration.GetConnectionString("DefaultConnection");
-
-            services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseNpgsql(connectionString,
-                    builder => builder.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
-
-        }
-        catch (Exception ex)
-        {
-
-            throw;
-        }
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        services.AddDbContext<ApplicationDbContext>(options =>
+            options.UseNpgsql(connectionString,
+                builder => builder.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
     }
 
     public static void AddRepository(this IServiceCollection services)
@@ -131,7 +119,11 @@ public static class IServiceCollectionExtension
             options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
         });
 
-        services.AddAuthentication(options =>
+        var jwtSecret = configuration["JwtSettings:SecretKey"];
+        if (string.IsNullOrWhiteSpace(jwtSecret) || Encoding.UTF8.GetByteCount(jwtSecret) < 32)
+            throw new InvalidOperationException("JwtSettings:SecretKey must be at least 32 bytes. Supply it with user secrets or JwtSettings__SecretKey.");
+
+        var authBuilder = services.AddAuthentication(options =>
         {
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
             options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -146,8 +138,7 @@ public static class IServiceCollectionExtension
                 ValidateIssuerSigningKey = true,
                 ValidIssuer = configuration["JwtSettings:Issuer"],
                 ValidAudience = configuration["JwtSettings:Audience"],
-                IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
-                 Encoding.UTF8.GetBytes(configuration["JwtSettings:SecretKey"])),
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
                 RoleClaimType = ClaimTypes.Role
 
             };
@@ -158,23 +149,35 @@ public static class IServiceCollectionExtension
             options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
             options.SlidingExpiration = true;
             options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
-        })
-       .AddGoogle(options =>
-       {
-           options.ClientId = configuration["Auth:Google:ClientID"];
-           options.ClientSecret = configuration["Auth:Google:ClientSecret"];
-           options.Scope.Add("email");
-           options.Scope.Add("profile");
-           options.SaveTokens = true;
-       })
-       .AddLinkedIn(options =>
-       {
-           options.ClientId = configuration["Auth:LinkedIn:ClientId"];
-           options.ClientSecret = configuration["Auth:LinkedIn:ClientSecret"];
-           options.CallbackPath = new PathString("/signin-LinkedIn"); // Make sure this matches LinkedIn's registered redirect URI
-           options.Scope.Add("r_liteprofile");
-           options.Scope.Add("r_emailaddress");
-           options.SaveTokens = true;
-       });
+        });
+
+        var googleClientId = configuration["Auth:Google:ClientID"];
+        var googleClientSecret = configuration["Auth:Google:ClientSecret"];
+        if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(googleClientSecret))
+        {
+            authBuilder.AddGoogle(options =>
+            {
+                options.ClientId = googleClientId;
+                options.ClientSecret = googleClientSecret;
+                options.Scope.Add("email");
+                options.Scope.Add("profile");
+                options.SaveTokens = true;
+            });
+        }
+
+        var linkedInClientId = configuration["Auth:LinkedIn:ClientId"];
+        var linkedInClientSecret = configuration["Auth:LinkedIn:ClientSecret"];
+        if (!string.IsNullOrWhiteSpace(linkedInClientId) && !string.IsNullOrWhiteSpace(linkedInClientSecret))
+        {
+            authBuilder.AddLinkedIn(options =>
+            {
+                options.ClientId = linkedInClientId;
+                options.ClientSecret = linkedInClientSecret;
+                options.CallbackPath = new PathString("/signin-LinkedIn"); // Make sure this matches LinkedIn's registered redirect URI
+                options.Scope.Add("r_liteprofile");
+                options.Scope.Add("r_emailaddress");
+                options.SaveTokens = true;
+            });
+        }
     }
 }

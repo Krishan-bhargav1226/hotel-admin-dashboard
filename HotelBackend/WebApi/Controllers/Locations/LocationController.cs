@@ -1,4 +1,4 @@
-﻿using Application.Features.Locations.Commands;
+using Application.Features.Locations.Commands;
 using Application.Features.Locations.Queries;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -48,6 +48,8 @@ public class LocationController : ControllerBase
 
     [AllowAnonymous]
     [HttpGet]
+    [HttpGet("all")]
+    [HttpGet("getall")]
     public async Task<ActionResult> GetAllLocation(int? locationTypeId,int? parentId)
     {
         var data = await _mediator.Send(new GetAllLocationQuery(locationTypeId,parentId));

@@ -12,7 +12,7 @@ public class Template : BaseAuditableEntity
     public int TypeId { get; set; }
     public TemplateType TemplateType { get; set; }
 
-    public bool IsActive { get; set; } = false;
+    public new bool IsActive { get; set; } = false;
     public List<TemplateDocument> Documents { get; set; }
     public TemplateBody TemplateBody { get; set; }
 }

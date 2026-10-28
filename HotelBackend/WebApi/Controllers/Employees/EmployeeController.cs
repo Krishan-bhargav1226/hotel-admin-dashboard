@@ -56,9 +56,11 @@ public class EmployeeController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAllEmployees([FromQuery] GetAllEmployeesQuery query)
+    [HttpGet("all")]
+    [HttpGet("getall")]
+    public async Task<ActionResult> GetAllEmployees([FromQuery] GetAllEmployeesQuery query)
     {
         var result = await _mediator.Send(query);
-        return Ok(result);
+        return ResponseHelper.GeneratePaginatedResponse(result);
     }
 }

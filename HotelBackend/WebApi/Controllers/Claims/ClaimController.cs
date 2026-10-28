@@ -1,4 +1,4 @@
-﻿using Application.Features.Claims.Command;
+using Application.Features.Claims.Command;
 using Application.Features.Claims.Queries;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -25,6 +25,8 @@ public class ClaimController : ControllerBase
     }
 
     [HttpGet]
+    [HttpGet("all")]
+    [HttpGet("getall")]
     public async Task<IActionResult> GetAllClaim()
     {
         var data = await _mediator.Send(new GetClaimQuery());

@@ -26,6 +26,7 @@ public class HotelMapping : Profile
         CreateMap<ServiceOrder, GetServiceOrderDto>()
             .ForMember(d => d.Items, o => o.MapFrom(s => s.Lines.Where(l => !l.IsDeleted)));
 
+        CreateMap<Domain.Entities.Maintenances.MaintenanceTicket, Application.Dto.Maintenances.GetMaintenanceTicketDto>();
         CreateMap<StayCompanion, GetStayCompanionDto>();
         CreateMap<StayCharge, GetStayChargeDto>();
         CreateMap<Stay, GetStayDto>()

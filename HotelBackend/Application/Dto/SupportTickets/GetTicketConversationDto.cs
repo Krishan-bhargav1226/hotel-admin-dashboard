@@ -8,7 +8,6 @@ namespace Application.Dto.TicketConversations;
 
 public class GetTicketConversationDto : BaseDto, IMapFrom<TicketConversation>
 {
-    public int Id { get; set; }
     public int SupportTicketId { get; set; }
     public GetSupportTicketDto SupportTicket { get; set; }
     public IdAndNameDto ResponseBy { get; set; }

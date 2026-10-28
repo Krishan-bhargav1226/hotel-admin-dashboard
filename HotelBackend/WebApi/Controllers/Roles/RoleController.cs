@@ -1,4 +1,4 @@
-﻿using Application.Features.Roles.Command;
+using Application.Features.Roles.Command;
 using Application.Features.Roles.Queries;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -25,6 +25,8 @@ public class RoleController : ControllerBase
     }
 
     [HttpGet]
+    [HttpGet("all")]
+    [HttpGet("getall")]
     public async Task<IActionResult> GetRole()
     {
         var data = await _mediator.Send(new GetAllRoleQuery());

@@ -2,11 +2,13 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace WebApi.Controllers.UserLogins;
 
 [Route("api/user")]
 [ApiController]
+[EnableRateLimiting("auth")]
 public class UserLoginController : ControllerBase
 {
 
@@ -61,7 +63,7 @@ public class UserLoginController : ControllerBase
         return ResponseHelper.GenerateResponse(data);
     }
 
-    [AllowAnonymous]
+    [Authorize(Roles = "Admin,SuperAdmin")]
     [HttpPut("change-password/admin")]
     public async Task<ActionResult> ChangePasswordByAdmin(ChangePasswordByAdminCommand command)
     {

@@ -1,4 +1,4 @@
-﻿using Application.Features.Employees.Queries;
+using Application.Features.Employees.Queries;
 using Application.Features.Users;
 using Application.Features.Users.Commands;
 using Application.Features.Users.Queries;
@@ -28,6 +28,8 @@ public class UserController : ControllerBase
     }
 
     [HttpGet]
+    [HttpGet("all")]
+    [HttpGet("getall")]
     public async Task<IActionResult> GetAll([FromQuery] GetAllUserQuery query)
     {
         var data = await _mediator.Send(query);
@@ -41,6 +43,7 @@ public class UserController : ControllerBase
         return ResponseHelper.GenerateResponse(data);
     }
 
+    [AllowAnonymous]
     [HttpPost("register")]
     public async Task<IActionResult> Register(UserRegistrationCommand command)
     {

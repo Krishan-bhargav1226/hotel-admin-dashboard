@@ -17,6 +17,8 @@ public class HousekeepingController : ControllerBase
     }
 
     [HttpGet]
+    [HttpGet("all")]
+    [HttpGet("getall")]
     public async Task<ActionResult> GetAll([FromQuery] GetAllHousekeepingQuery query)
     {
         var data = await _mediator.Send(query);

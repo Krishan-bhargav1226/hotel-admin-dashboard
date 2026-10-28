@@ -1,4 +1,4 @@
-﻿using Application.Features.SupportTickets.Commands;
+using Application.Features.SupportTickets.Commands;
 using Application.Features.SupportTickets.Queries;
 using Domain.Common.Enums.PriorityTypes;
 using MediatR;
@@ -36,6 +36,8 @@ namespace WebApi.Controllers.SupportTickets
         }
 
         [HttpGet]
+        [HttpGet("all")]
+        [HttpGet("getall")]
         public async Task<ActionResult> GetSupportTicket([FromQuery] GetSupportTicketQuery query)
         {
             var data = await _mediator.Send(query);

@@ -45,6 +45,8 @@ public class StaffController : ControllerBase
     }
 
     [HttpGet]
+    [HttpGet("all")]
+    [HttpGet("getall")]
     public async Task<ActionResult> GetAll([FromQuery] GetAllStaffQuery query)
     {
         var data = await _mediator.Send(query);

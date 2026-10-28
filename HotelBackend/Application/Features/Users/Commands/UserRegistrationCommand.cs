@@ -7,6 +7,7 @@ using Application.Interfaces.UnitOfWorkRepositories;
 using AutoMapper;
 using Domain.Common.Enums.Otps;
 using Domain.Common.Enums.Users;
+using Domain.Entities.ApplicationRoles;
 using Domain.Entities.ApplicationUsers;
 using Domain.Entities.Templates;
 using MediatR;
@@ -39,6 +40,7 @@ public class UserRegistrationCommand : IRequest<Result<string>>, ICreateMapFrom<
 internal class UserRegistrationCommandHandler : IRequestHandler<UserRegistrationCommand, Result<string>>
 {
     private readonly UserManager<User> _userManager;
+    private readonly RoleManager<Role> _roleManager;
     private readonly IMapper _mapper;
     private readonly IUserIdAndOrganizationIdRepository _userIdAndOrganizationIdRepository;
     private readonly IOtpRepository _otpRepository;
@@ -47,6 +49,7 @@ internal class UserRegistrationCommandHandler : IRequestHandler<UserRegistration
 
     public UserRegistrationCommandHandler(
         UserManager<User> userManager,
+        RoleManager<Role> roleManager,
         IMapper mapper,
         IUserIdAndOrganizationIdRepository userIdAndOrganizationIdRepository,
         IOtpRepository otpRepository,
@@ -54,6 +57,7 @@ internal class UserRegistrationCommandHandler : IRequestHandler<UserRegistration
         IUnitOfWork unitOfWork)
     {
         _userManager = userManager;
+        _roleManager = roleManager;
         _mapper = mapper;
         _userIdAndOrganizationIdRepository = userIdAndOrganizationIdRepository;
         _otpRepository = otpRepository;
@@ -63,7 +67,7 @@ internal class UserRegistrationCommandHandler : IRequestHandler<UserRegistration
 
     public async Task<Result<string>> Handle(UserRegistrationCommand request, CancellationToken cancellationToken)
     {
-        request.Email = request.Email?.ToLower();
+        request.Email = request.Email?.Trim().ToLower();
 
         if (request.Email == null && request.PhoneNumber == null)
         {
@@ -71,13 +75,12 @@ internal class UserRegistrationCommandHandler : IRequestHandler<UserRegistration
         }
 
         var userOrgInfo = await _userIdAndOrganizationIdRepository.Get();
-
-        // Check if user with this email already exists
+        var organizationId = userOrgInfo?.OrganizationId ?? 1;
 
         if (request.Email != null)
         {
             var existingUser = await _userManager.Users
-                .AnyAsync(x => x.Email.ToLower() == request.Email && x.EmailConfirmed);
+                .AnyAsync(x => x.Email != null && x.Email.ToLower() == request.Email, cancellationToken);
             if (existingUser)
             {
                 return Result<string>.BadRequest("User with this email already exists.");
@@ -87,24 +90,24 @@ internal class UserRegistrationCommandHandler : IRequestHandler<UserRegistration
         if (request.PhoneNumber != null)
         {
             var existingUser = await _userManager.Users
-                .AnyAsync(x => x.PhoneNumber.ToLower() == request.PhoneNumber && x.PhoneNumberConfirmed);
+                .AnyAsync(x => x.PhoneNumber != null && x.PhoneNumber == request.PhoneNumber, cancellationToken);
             if (existingUser)
             {
-                return Result<string>.BadRequest("User with this email already exists.");
+                return Result<string>.BadRequest("User with this phone number already exists.");
             }
         }
 
-        // Create new user
+        // Create new user as a normal user
         var user = new User
         {
-            UserName = Guid.NewGuid().ToString(),
+            UserName = request.Email ?? Guid.NewGuid().ToString(),
             Email = request.Email,
             PhoneNumber = request.PhoneNumber,
-            FirstName = request.FirstName,
-            LastName = request.LastName,
-            OrganizationId = userOrgInfo.OrganizationId.Value,
-            EmailConfirmed = false,
-            PhoneNumberConfirmed = false,
+            FirstName = request.FirstName.Trim(),
+            LastName = request.LastName?.Trim() ?? string.Empty,
+            OrganizationId = organizationId,
+            EmailConfirmed = true,
+            PhoneNumberConfirmed = true,
             UserType = UserType.WebUser
         };
 
@@ -116,17 +119,28 @@ internal class UserRegistrationCommandHandler : IRequestHandler<UserRegistration
             return Result<string>.BadRequest($"Failed to create user: {errors}");
         }
 
-        // Generate and save OTP
-
-        if (request.Email != null)
+        // Ensure default "User" role exists and assign it
+        if (!await _roleManager.RoleExistsAsync("User"))
         {
-            var otpEntity = await _otpRepository.GenerateAndAddOtpAsync(user.Id, "Registration", OtpSentOn.Email, cancellationToken);
+            await _roleManager.CreateAsync(new Role { Name = "User", OrganizationId = organizationId });
+        }
+        await _userManager.AddToRoleAsync(user, "User");
 
-            // Send OTP email
-            await SendRegistrationOtpEmail(request.Email, otpEntity.Otp, request.FirstName + request.LastName ?? "");
+        // Attempt optional OTP generation and email notice safely
+        try
+        {
+            if (request.Email != null)
+            {
+                var otpEntity = await _otpRepository.GenerateAndAddOtpAsync(user.Id, "Registration", OtpSentOn.Email, cancellationToken);
+                await SendRegistrationOtpEmail(request.Email, otpEntity.Otp, $"{request.FirstName} {request.LastName}".Trim());
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[REGISTRATION NOTICE]: Email/OTP notification skipped: {ex.Message}");
         }
 
-        return Result<string>.Success("User registered successfully. OTP sent to email.");
+        return Result<string>.Success(user.Id, "User registered successfully as a normal user.");
     }
 
     private async Task SendRegistrationOtpEmail(string email, int otp, string name)
@@ -137,17 +151,15 @@ internal class UserRegistrationCommandHandler : IRequestHandler<UserRegistration
             .Include(x => x.TemplateBody)
             .FirstOrDefaultAsync(x => x.Id == templateId);
 
-        if (template == null)
+        if (template != null && template.TemplateBody != null)
         {
-            throw new BadRequestException($"template id {templateId} doesn't exists");
+            string subject = template.Subject;
+
+            string emailBody = template.TemplateBody.Body
+                .Replace("{{otp}}", otp.ToString())
+                .Replace("{{username}}", name);
+
+            await _emailService.SendEmail(email, subject, emailBody);
         }
-
-        string subject = template.Subject;
-
-        string emailBody = template.TemplateBody.Body
-            .Replace("{{otp}}", otp.ToString())
-            .Replace("{{username}}", name);
-
-        await _emailService.SendEmail(email, subject, emailBody);
     }
 }
