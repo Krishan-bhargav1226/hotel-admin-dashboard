@@ -41,6 +41,13 @@ public class ApiSecurityTests : IClassFixture<HotelApiFactory>
     }
 
     [Fact]
+    public async Task Password_change_requires_authentication()
+    {
+        var response = await _client.PostAsJsonAsync("/api/user/change-password", new { oldPassword = "ChangeMe@123", newPassword = "Hotel1234" });
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Admin_password_change_is_not_anonymous()
     {
         var response = await _client.PutAsJsonAsync("/api/user/change-password/admin", new { userId = "missing", newPassword = "long-enough" });

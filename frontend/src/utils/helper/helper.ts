@@ -4,8 +4,24 @@ export const uid = (): string =>
     : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
 export const getErrorMessage = (error: unknown): string => {
-  if (error && typeof error === "object" && "message" in error) {
-    return String((error as { message: unknown }).message);
+  if (typeof error === "string" && error.trim()) return error;
+  if (error && typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    const data = record.data;
+    if (typeof data === "string" && data.trim()) return data;
+    if (data && typeof data === "object") {
+      const body = data as Record<string, unknown>;
+      if (Array.isArray(body.messages)) {
+        const messages = body.messages.map(String).map((message) => message.trim()).filter(Boolean);
+        if (messages.length) return messages.join(" ");
+      }
+      if (typeof body.detail === "string" && body.detail.trim()) return body.detail;
+      if (typeof body.message === "string" && body.message.trim()) return body.message;
+      if (typeof body.title === "string" && body.title.trim()) return body.title;
+    }
+    if (typeof record.message === "string" && record.message.trim() && record.message !== "Rejected") {
+      return record.message;
+    }
   }
   return "Something went wrong";
 };

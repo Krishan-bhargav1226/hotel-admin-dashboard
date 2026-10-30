@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import DashboardModeBar, { type DashboardMode } from "../components/DashboardModeBar";
@@ -39,6 +39,13 @@ export default function SuperAdminDashboard({ onSwitchToFrontDesk }: SuperAdminD
 
   const [isAddHotelOpen, setIsAddHotelOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<HotelProperty | null>(null);
+
+  useEffect(() => {
+    setEditingProperty((current) => {
+      if (!current) return current;
+      return properties.find((property) => property.id === current.id) ?? null;
+    });
+  }, [properties]);
   const [addRoomTarget, setAddRoomTarget] = useState<HotelProperty | null>(null);
   const [isAddRoomOpen, setIsAddRoomOpen] = useState(false);
   const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
@@ -98,13 +105,14 @@ export default function SuperAdminDashboard({ onSwitchToFrontDesk }: SuperAdminD
   const handleAddStaffSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStaffForm.name?.trim()) return toast.error("Please enter staff member name");
+    if (!newStaffForm.phone?.trim()) return toast.error("Please enter a phone number");
     try {
       await saveStaff({
         ...newStaffForm,
         name: newStaffForm.name.trim(),
         role: newStaffForm.role || "RECEPTIONIST",
-        phone: newStaffForm.phone?.trim() || "+91 9800000000",
-        propertyName: newStaffForm.propertyName || "Chain-wide (All Properties)",
+        phone: newStaffForm.phone.trim(),
+        propertyName: newStaffForm.propertyName?.trim() || "",
       }).unwrap();
       toast.success("New team member onboarded!");
       setIsAddStaffOpen(false);

@@ -1,7 +1,7 @@
 using Application.Features.Commons;
 using Application.Interfaces.Repositories.UserIdAndOrganizationIds;
 using Application.Interfaces.UnitOfWorkRepositories;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 using Domain.Entities.RatePlans;
 using Domain.Entities.RoomTypes;
 using MediatR;

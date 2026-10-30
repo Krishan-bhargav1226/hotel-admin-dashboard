@@ -10,7 +10,41 @@ export interface RoomPayload {
   basePrice?: number;
   bedType?: string;
   category?: string;
+  image?: string;
+  maxGuests?: number;
+  sizeSqFt?: number;
+  suitableFor?: string;
+  bedConfig?: string;
+  amenities?: string[] | string;
+  badge?: string;
+  propertyId?: string;
 }
+
+const appendRoomForm = (formData: FormData, payload: RoomPayload) => {
+  formData.append("Number", payload.number.trim());
+  formData.append("Floor", payload.floor.trim());
+  formData.append("RoomTypeId", payload.roomTypeId);
+  formData.append("Notes", payload.notes?.trim() ?? "");
+  if (payload.status) formData.append("Status", payload.status);
+  if (payload.basePrice != null) formData.append("BasePrice", String(payload.basePrice));
+  if (payload.maxGuests != null) formData.append("MaxGuests", String(payload.maxGuests));
+  if (payload.sizeSqFt != null) formData.append("SizeSqFt", String(payload.sizeSqFt));
+  if (payload.bedType != null) formData.append("BedType", payload.bedType);
+  if (payload.category) formData.append("Category", payload.category);
+  if (payload.image != null) formData.append("Image", payload.image);
+  if (payload.suitableFor != null) formData.append("SuitableFor", payload.suitableFor);
+  if (payload.bedConfig != null) formData.append("BedConfig", payload.bedConfig);
+  if (payload.badge != null) formData.append("Badge", payload.badge);
+  if (payload.propertyId) formData.append("PropertyId", payload.propertyId);
+  if (payload.amenities != null) {
+    formData.append(
+      "Amenities",
+      Array.isArray(payload.amenities) ? JSON.stringify(payload.amenities) : payload.amenities,
+    );
+  }
+};
+
+const createdId = (res: unknown) => (typeof res === "number" ? res : 0);
 
 export interface BulkRoomPayload {
   from: number;
@@ -18,9 +52,28 @@ export interface BulkRoomPayload {
   floor: string;
   roomTypeId: string;
   prefix?: string;
+  propertyId?: string;
 }
 
 const mapBackendRoom = (item: any): Room => {
+  if (!item || typeof item !== "object") {
+    return {
+      id: "",
+      number: "",
+      floor: "",
+      roomTypeId: "",
+      status: "AVAILABLE",
+      notes: "",
+      images: [],
+      amenities: [],
+      maxGuests: 0,
+      sizeSqFt: 0,
+      basePrice: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
   let parsedAmenities: string[] = [];
   if (Array.isArray(item.amenities)) {
     parsedAmenities = item.amenities;
@@ -74,32 +127,25 @@ const roomApi = hotelApi.injectEndpoints({
       query: () => "/room",
       transformResponse: (response: any) => {
         const rawList = Array.isArray(response) ? response : (response?.data ?? []);
-        return rawList.map(mapBackendRoom).sort((a: Room, b: Room) =>
+        return rawList.map(mapBackendRoom).filter((room: Room) => room.id).sort((a: Room, b: Room) =>
           a.number.localeCompare(b.number, undefined, { numeric: true })
         );
       },
       providesTags: ["Room"],
     }),
 
-    createRoom: builder.mutation<Room, RoomPayload>({
+    createRoom: builder.mutation<number, RoomPayload>({
       query: (payload) => {
         const formData = new FormData();
-        formData.append("Number", payload.number.trim());
-        formData.append("Floor", payload.floor.trim());
-        formData.append("RoomTypeId", payload.roomTypeId);
-        formData.append("Notes", payload.notes?.trim() ?? "");
-        if (payload.status) formData.append("Status", payload.status);
-        if (payload.basePrice) formData.append("BasePrice", String(payload.basePrice));
-        if (payload.bedType) formData.append("BedType", payload.bedType);
-        if (payload.category) formData.append("Category", payload.category);
+        appendRoomForm(formData, payload);
         return {
           url: "/room",
           method: "POST",
           body: formData,
         };
       },
-      transformResponse: (res: any) => mapBackendRoom(res?.data ?? res),
-      invalidatesTags: ["Room"],
+      transformResponse: (res: unknown) => createdId(res),
+      invalidatesTags: ["Room", "Housekeeping"],
     }),
 
     createBulkRooms: builder.mutation<number, BulkRoomPayload>({
@@ -112,31 +158,24 @@ const roomApi = hotelApi.injectEndpoints({
           floor: payload.floor.trim(),
           roomTypeId: Number(payload.roomTypeId),
           prefix: payload.prefix ?? "",
+          propertyId: payload.propertyId ? Number(payload.propertyId) : null,
         },
       }),
-      transformResponse: (res: any) => res?.data ?? 1,
-      invalidatesTags: ["Room"],
+      transformResponse: (res: unknown) => (typeof res === "number" ? res : 0),
+      invalidatesTags: ["Room", "Housekeeping"],
     }),
 
-    updateRoom: builder.mutation<Room, { id: string; data: RoomPayload }>({
+    updateRoom: builder.mutation<void, { id: string; data: RoomPayload }>({
       query: ({ id, data }) => {
         const formData = new FormData();
-        formData.append("Number", data.number.trim());
-        formData.append("Floor", data.floor.trim());
-        formData.append("RoomTypeId", data.roomTypeId);
-        formData.append("Notes", data.notes?.trim() ?? "");
-        if (data.status) formData.append("Status", data.status);
-        if (data.basePrice) formData.append("BasePrice", String(data.basePrice));
-        if (data.bedType) formData.append("BedType", data.bedType);
-        if (data.category) formData.append("Category", data.category);
+        appendRoomForm(formData, data);
         return {
           url: `/room/${id}`,
           method: "PUT",
           body: formData,
         };
       },
-      transformResponse: (res: any) => mapBackendRoom(res?.data ?? res),
-      invalidatesTags: ["Room"],
+      invalidatesTags: ["Room", "Housekeeping"],
     }),
 
     updateRoomStatus: builder.mutation<void, { id: string; status: RoomStatus }>({
@@ -145,7 +184,7 @@ const roomApi = hotelApi.injectEndpoints({
         method: "PUT",
         body: { status },
       }),
-      invalidatesTags: ["Room"],
+      invalidatesTags: ["Room", "Housekeeping", "Stay", "Reservation"],
     }),
 
     deleteRoom: builder.mutation<boolean, string>({
@@ -154,7 +193,7 @@ const roomApi = hotelApi.injectEndpoints({
         method: "DELETE",
       }),
       transformResponse: () => true,
-      invalidatesTags: ["Room"],
+      invalidatesTags: ["Room", "Housekeeping", "Stay", "Reservation"],
     }),
   }),
 });

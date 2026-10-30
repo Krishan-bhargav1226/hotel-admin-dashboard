@@ -39,17 +39,26 @@ public class ChatController : ControllerBase
                      ?? User.FindFirst("id")?.Value 
                      ?? "anonymous";
 
-        // 2. RETRIEVE TENANT / ORGANIZATION CONTEXT
+        // 2. RETRIEVE TENANT / ORGANIZATION CONTEXT & ACTIVE PROPERTY
         int? organizationId = null;
+        int? propertyId = request.PropertyId;
         try
         {
             var userOrg = await _userIdAndOrganizationIdRepository.Get();
             organizationId = userOrg?.OrganizationId;
+            if (propertyId == null && userOrg?.PropertyId != null)
+            {
+                propertyId = userOrg.PropertyId;
+            }
         }
         catch
         {
-            // Default organization fallback if unauthenticated demo
             organizationId = 1;
+        }
+
+        if (request.PropertyId == null && propertyId != null)
+        {
+            request.PropertyId = propertyId;
         }
 
         // 3. SECURE AI INFERENCE & DATABASE GROUNDING

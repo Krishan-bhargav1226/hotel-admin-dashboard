@@ -9,27 +9,47 @@ export type RoomTypePayload = Pick<RoomType, "name" | "description"> & {
   sizeSqFt?: number;
 };
 
+const asStringList = (value: unknown): string[] => {
+  if (Array.isArray(value)) return value.map(String).filter(Boolean);
+  if (typeof value !== "string" || !value.trim()) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
+  } catch {
+    // Amenities are sometimes stored as a comma-separated string.
+  }
+  return value.split(",").map((part) => part.trim()).filter(Boolean);
+};
+
 const mapBackendRoomType = (item: any): RoomType => {
-  let parsedAmenities: string[] = [];
-  if (Array.isArray(item.amenities)) {
-    parsedAmenities = item.amenities;
-  } else if (typeof item.amenities === "string") {
-    try {
-      parsedAmenities = JSON.parse(item.amenities);
-    } catch {
-      parsedAmenities = item.amenities.split(",").map((s: string) => s.trim());
-    }
+  if (!item || typeof item !== "object") {
+    return {
+      id: "",
+      name: "",
+      description: "",
+      images: [],
+      category: "COUPLE",
+      maxGuests: 2,
+      sizeSqFt: 0,
+      basePrice: 0,
+      amenities: [],
+      createdAt: new Date().toISOString(),
+    };
   }
 
+  const parsedAmenities = asStringList(item.amenities);
   let parsedImages: string[] = [];
   if (Array.isArray(item.images)) {
-    parsedImages = item.images;
-  } else if (typeof item.images === "string") {
+    parsedImages = item.images.map(String).filter(Boolean);
+  } else if (typeof item.images === "string" && item.images.trim()) {
     try {
-      parsedImages = JSON.parse(item.images);
+      const parsed = JSON.parse(item.images);
+      parsedImages = Array.isArray(parsed) ? parsed.map(String).filter(Boolean) : [item.images];
     } catch {
       parsedImages = [item.images];
     }
+  } else if (typeof item.image === "string" && item.image.trim()) {
+    parsedImages = [item.image];
   }
 
   return {

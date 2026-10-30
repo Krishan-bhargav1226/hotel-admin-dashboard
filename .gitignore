@@ -24,6 +24,10 @@ playwright-report/
 **/appsettings.Production.json
 **/appsettings.*.local.json
 
+# Guest uploads and local media
+HotelBackend/WebApi/wwwroot/Documents/*
+!HotelBackend/WebApi/wwwroot/Documents/.gitkeep
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

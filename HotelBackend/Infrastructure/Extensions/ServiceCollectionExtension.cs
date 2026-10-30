@@ -1,7 +1,5 @@
-using Application.Interfaces.Repositories.Payments;
 using Application.Interfaces.Services;
 using Infrastructure.Extensions.Services;
-using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Infrastructure.Extensions;
@@ -17,11 +15,9 @@ public static class ServiceCollectionExtension
     {
         services.AddHttpClient();
         services
-            .AddTransient<IMediator, Mediator>()
-        .AddTransient<IEmailService, EmailService>()
-        .AddTransient<IJWTService, JWTService>()
-        .AddTransient<IPaymentService, PaymentService>()
-        .AddTransient<IHotelGroundingService, HotelGroundingService>()
-        .AddTransient<IGeminiChatService, GeminiChatService>();
+            .AddTransient<IEmailService, EmailService>()
+            .AddTransient<IJWTService, JWTService>()
+            .AddTransient<IHotelGroundingService, HotelGroundingService>()
+            .AddTransient<IGeminiChatService, GeminiChatService>();
     }
 }

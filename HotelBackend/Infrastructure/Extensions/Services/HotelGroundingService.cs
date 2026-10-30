@@ -1,15 +1,18 @@
 using Application.Interfaces.GenericRepositories;
 using Application.Interfaces.Services;
 using Application.Interfaces.UnitOfWorkRepositories;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
+using Domain.Entities.HotelSettings;
 using Domain.Entities.Housekeepings;
 using Domain.Entities.Maintenances;
 using Domain.Entities.NightAudits;
+using Domain.Entities.Properties;
 using Domain.Entities.Reservations;
 using Domain.Entities.Rooms;
 using Domain.Entities.Stays;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Infrastructure.Extensions.Services;
 
@@ -26,6 +29,9 @@ public class HotelGroundingService : IHotelGroundingService
         string userRole,
         int? organizationId,
         string userMessage,
+        int? propertyId = null,
+        string? propertyName = null,
+        string? pageContext = null,
         CancellationToken cancellationToken = default)
     {
         var lowerMsg = (userMessage ?? "").ToLower();
@@ -68,99 +74,205 @@ public class HotelGroundingService : IHotelGroundingService
 
         try
         {
-            // A. Room Status & Availability
+            // A. Active Property & Organization Context
+            var properties = await _queryContext.Repository<HotelProperty>().Entities
+                .Where(p => !p.IsDeleted && (organizationId == null || p.OrganizationId == organizationId))
+                .Select(p => new { p.Id, p.Name, p.Location, p.RoomCount, p.OccupancyRate, p.Status })
+                .ToListAsync(cancellationToken);
+
+            var activeProp = properties.FirstOrDefault(p => propertyId != null && p.Id == propertyId.Value)
+                             ?? properties.FirstOrDefault(p => !string.IsNullOrEmpty(propertyName) && p.Name.Equals(propertyName, StringComparison.OrdinalIgnoreCase))
+                             ?? properties.FirstOrDefault();
+
+            sb.AppendLine($"- Active Property: {activeProp?.Name ?? propertyName ?? "Main Hotel"} (ID: {activeProp?.Id ?? propertyId ?? 1})");
+            if (properties.Count > 1)
+            {
+                sb.AppendLine($"- Chain Properties: {string.Join(", ", properties.Select(p => $"{p.Name} (ID: {p.Id}, {p.RoomCount} rooms, {p.OccupancyRate}% occ)"))}");
+            }
+
+            // B. Page Context
+            if (!string.IsNullOrWhiteSpace(pageContext))
+            {
+                var pageDesc = pageContext.ToLower() switch
+                {
+                    var p when p.Contains("room") => "Room Inventory & Photo Gallery (/rooms)",
+                    var p when p.Contains("housekeep") => "Housekeeping Board & Turnover Operations (/housekeeping)",
+                    var p when p.Contains("check-in") || p.Contains("checkin") => "New Guest Check-In Wizard (/check-in)",
+                    var p when p.Contains("stay") => "In-House Active Stays (/stays)",
+                    var p when p.Contains("reservation") => "Reservations & Booking Calendar (/reservations)",
+                    var p when p.Contains("pos") => "POS & Room Service Orders (/pos)",
+                    var p when p.Contains("guest") => "Guests CRM Directory (/guests)",
+                    var p when p.Contains("setting") => "Hotel Brand & System Settings (/settings)",
+                    var p when p.Contains("dashboard") => "Executive Front Desk Dashboard (/dashboard)",
+                    _ => pageContext
+                };
+                sb.AppendLine($"- User Active Screen: Currently viewing {pageDesc}");
+            }
+
+            // C. Hotel Settings
+            var settings = await _queryContext.Repository<HotelSetting>().Entities
+                .Where(s => !s.IsDeleted && (organizationId == null || s.OrganizationId == organizationId))
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (settings != null)
+            {
+                sb.AppendLine($"- Operational Rules: Hotel Name: '{settings.HotelName}', Check-in Time: {settings.CheckInTime ?? "12:00 PM"}, Check-out Time: {settings.CheckOutTime ?? "11:00 AM"}, Currency: {settings.CurrencySymbol ?? "₹"}, Tax Rate: {settings.TaxPercent}%");
+            }
+
+            // D. Comprehensive Room Inventory
             var roomsQuery = _queryContext.Repository<Room>().Entities
+                .Include(r => r.RoomType)
+                .Include(r => r.Property)
                 .Where(r => !r.IsDeleted && (organizationId == null || r.OrganizationId == organizationId));
 
-            var totalRooms = await roomsQuery.CountAsync(cancellationToken);
-            var occupied = await roomsQuery.CountAsync(r => r.Status == RoomStatus.OCCUPIED, cancellationToken);
-            var available = await roomsQuery.CountAsync(r => r.Status == RoomStatus.AVAILABLE, cancellationToken);
-            var dirty = await roomsQuery.CountAsync(r => r.Status == RoomStatus.CLEANING, cancellationToken);
-            var maintenanceCount = await roomsQuery.CountAsync(r => r.Status == RoomStatus.MAINTENANCE, cancellationToken);
-
-            sb.AppendLine($"- Room Inventory Overview: Total={totalRooms}, Available={available}, Occupied={occupied}, Cleaning/Turnaround={dirty}, Out-of-Order/Maintenance={maintenanceCount}");
-
-            // Specific room details based on request
-            if (lowerMsg.Contains("dirty") || lowerMsg.Contains("clean") || isHousekeeping)
+            if (propertyId != null && propertyId > 0)
             {
-                var dirtyRooms = await roomsQuery
-                    .Where(r => r.Status == RoomStatus.CLEANING)
-                    .Select(r => new { r.Number, r.Floor, r.Notes })
-                    .Take(10)
-                    .ToListAsync(cancellationToken);
-
-                if (dirtyRooms.Count > 0)
+                // Prioritize active property rooms, fallback to all if none
+                var propRoomsCount = await roomsQuery.CountAsync(r => r.PropertyId == propertyId, cancellationToken);
+                if (propRoomsCount > 0)
                 {
-                    sb.AppendLine($"- Rooms currently cleaning/turnaround: {string.Join(", ", dirtyRooms.Select(d => $"Room {d.Number} (Floor {d.Floor})"))}");
+                    roomsQuery = roomsQuery.Where(r => r.PropertyId == propertyId);
                 }
             }
 
-            if (lowerMsg.Contains("available") || lowerMsg.Contains("suite") || lowerMsg.Contains("booking") || isFrontDesk)
-            {
-                var availList = await roomsQuery
-                    .Where(r => r.Status == RoomStatus.AVAILABLE)
-                    .Select(r => new { r.Number, r.Floor, r.BedType, r.BasePrice, r.Category })
-                    .Take(8)
-                    .ToListAsync(cancellationToken);
-
-                if (availList.Count > 0)
+            var allRooms = await roomsQuery
+                .OrderBy(r => r.Number)
+                .Select(r => new
                 {
-                    sb.AppendLine($"- Currently Available Rooms: {string.Join(", ", availList.Select(a => $"Room {a.Number} (Floor {a.Floor}, {a.BedType}, ₹{a.BasePrice:N0})"))}");
+                    r.Id,
+                    r.Number,
+                    r.Floor,
+                    r.Status,
+                    r.BedType,
+                    r.BasePrice,
+                    r.Category,
+                    r.MaxGuests,
+                    r.Notes,
+                    RoomTypeName = r.RoomType != null ? r.RoomType.Name : "Standard",
+                    PropertyName = r.Property != null ? r.Property.Name : "Default Hotel"
+                })
+                .ToListAsync(cancellationToken);
+
+            var totalRooms = allRooms.Count;
+            var availableRooms = allRooms.Where(r => r.Status == RoomStatus.AVAILABLE).ToList();
+            var cleaningRooms = allRooms.Where(r => r.Status == RoomStatus.CLEANING).ToList();
+            var occupiedRooms = allRooms.Where(r => r.Status == RoomStatus.OCCUPIED).ToList();
+            var maintenanceRooms = allRooms.Where(r => r.Status == RoomStatus.MAINTENANCE).ToList();
+
+            sb.AppendLine($"- Room Inventory Breakdown: Total={totalRooms}, Available={availableRooms.Count}, Cleaning={cleaningRooms.Count}, Occupied={occupiedRooms.Count}, OutOfOrder/Maintenance={maintenanceRooms.Count}");
+
+            // List all rooms explicitly so AI knows each room number and status
+            if (allRooms.Count > 0)
+            {
+                sb.AppendLine("- All Hotel Rooms List:");
+                foreach (var rm in allRooms)
+                {
+                    sb.AppendLine($"  * Room {rm.Number} (Hotel: {rm.PropertyName}, Floor: {rm.Floor}, Status: {rm.Status}, Type: {rm.RoomTypeName}, Bed: {rm.BedType ?? "Double"}, Price: ₹{rm.BasePrice:N0}, MaxGuests: {rm.MaxGuests})");
                 }
             }
 
-            // B. Housekeeping Tasks
-            if (isSuperOrAdmin || isHousekeeping)
+            // E. Targeted Specific Room Lookup if Room Number Mentioned in Message
+            var roomMatches = Regex.Matches(lowerMsg, @"\b\d{2,4}\b");
+            foreach (Match match in roomMatches)
             {
-                var tasks = await _queryContext.Repository<HousekeepingTask>().Entities
-                    .Where(t => !t.IsDeleted && (organizationId == null || t.OrganizationId == organizationId) && t.Status != HousekeepingStatus.CLEAN_INSPECTED)
-                    .OrderByDescending(t => t.Priority)
-                    .Select(t => new { t.RoomNumber, t.Status, t.Priority, t.AssignedTo, t.Notes })
-                    .Take(6)
-                    .ToListAsync(cancellationToken);
-
-                if (tasks.Count > 0)
+                var num = match.Value;
+                var targetRoom = allRooms.FirstOrDefault(r => r.Number == num);
+                if (targetRoom != null)
                 {
-                    sb.AppendLine($"- Active Housekeeping Queue: {tasks.Count} tasks in progress/pending. Details: {string.Join("; ", tasks.Select(t => $"Room {t.RoomNumber} ({t.Status}, Priority: {t.Priority})"))}");
+                    sb.AppendLine($"[TARGET ROOM FOCUS: Room {num}]:");
+                    sb.AppendLine($"  - Status: {targetRoom.Status}, Floor: {targetRoom.Floor}, Room Type: {targetRoom.RoomTypeName}, Base Price: ₹{targetRoom.BasePrice:N0}");
+
+                    // Check if occupied in stays
+                    var stay = await _queryContext.Repository<Stay>().Entities
+                        .Where(s => !s.IsDeleted && s.RoomNumber == num && s.Status == StayStatus.ACTIVE)
+                        .Select(s => new { s.StayNo, s.GuestName, s.CheckInAt, s.ExpectedCheckOutAt })
+                        .FirstOrDefaultAsync(cancellationToken);
+
+                    if (stay != null)
+                    {
+                        sb.AppendLine($"  - Currently Occupied by Guest: {stay.GuestName} (Stay #{stay.StayNo}, Check-in: {stay.CheckInAt:dd MMM yyyy, hh:mm tt})");
+                    }
+
+                    // Check housekeeping task
+                    var hkTask = await _queryContext.Repository<HousekeepingTask>().Entities
+                        .Where(t => !t.IsDeleted && (t.RoomNumber == num || t.RoomId == targetRoom.Id))
+                        .OrderByDescending(t => t.Id)
+                        .Select(t => new { t.Status, t.Priority, t.AssignedTo, t.Notes, t.LastCleanedAt })
+                        .FirstOrDefaultAsync(cancellationToken);
+
+                    if (hkTask != null)
+                    {
+                        sb.AppendLine($"  - Housekeeping State: {hkTask.Status}, Priority: {hkTask.Priority}, Assigned: {hkTask.AssignedTo ?? "Unassigned"}, Notes: {hkTask.Notes ?? "None"}");
+                    }
+
+                    // Check maintenance ticket
+                    var mTicket = await _queryContext.Repository<MaintenanceTicket>().Entities
+                        .Where(m => !m.IsDeleted && (m.RoomNumber == num || m.RoomId == targetRoom.Id) && m.Status != MaintenanceStatus.RESOLVED)
+                        .Select(m => new { m.TicketNo, m.Title, m.Status, m.Priority })
+                        .FirstOrDefaultAsync(cancellationToken);
+
+                    if (mTicket != null)
+                    {
+                        sb.AppendLine($"  - Maintenance Issue: {mTicket.Title} (Ticket #{mTicket.TicketNo}, Status: {mTicket.Status}, Priority: {mTicket.Priority})");
+                    }
                 }
             }
 
-            // C. Maintenance Tickets
-            if (isSuperOrAdmin || isMaintenance)
-            {
-                var tickets = await _queryContext.Repository<MaintenanceTicket>().Entities
-                    .Where(t => !t.IsDeleted && (organizationId == null || t.OrganizationId == organizationId) && t.Status != MaintenanceStatus.RESOLVED)
-                    .Select(t => new { t.RoomNumber, t.Title, t.Status, t.Priority })
-                    .Take(5)
-                    .ToListAsync(cancellationToken);
+            // F. Active Housekeeping Queue
+            var tasks = await _queryContext.Repository<HousekeepingTask>().Entities
+                .Where(t => !t.IsDeleted && (organizationId == null || t.OrganizationId == organizationId) && t.Status != HousekeepingStatus.CLEAN_INSPECTED)
+                .OrderByDescending(t => t.Priority)
+                .Select(t => new { t.RoomNumber, t.Status, t.Priority, t.AssignedTo, t.Notes })
+                .Take(8)
+                .ToListAsync(cancellationToken);
 
-                if (tickets.Count > 0)
-                {
-                    sb.AppendLine($"- Open Maintenance Tickets: {tickets.Count} tickets pending. Details: {string.Join("; ", tickets.Select(tk => $"{tk.Title} in Room {tk.RoomNumber} (Priority: {tk.Priority})"))}");
-                }
+            if (tasks.Count > 0)
+            {
+                sb.AppendLine($"- Active Housekeeping Queue ({tasks.Count} pending): {string.Join("; ", tasks.Select(t => $"Room {t.RoomNumber} [{t.Status}, Priority: {t.Priority}, Staff: {t.AssignedTo ?? "Unassigned"}]"))}");
             }
 
-            // D. Front Desk Stays & Bookings
+            // G. In-House Active Stays & Bookings
             if (isSuperOrAdmin || isFrontDesk)
             {
                 var activeStays = await _queryContext.Repository<Stay>().Entities
                     .Where(s => !s.IsDeleted && (organizationId == null || s.OrganizationId == organizationId) && s.Status == StayStatus.ACTIVE)
-                    .Select(s => new { s.StayNo, s.RoomNumber, s.GuestName, s.CheckInAt, s.ExpectedCheckOutAt })
-                    .Take(5)
+                    .Select(s => new { s.StayNo, s.RoomNumber, s.GuestName, s.CheckInAt, s.ExpectedCheckOutAt, s.TotalAmount })
+                    .Take(8)
                     .ToListAsync(cancellationToken);
 
                 var pendingReservations = await _queryContext.Repository<Reservation>().Entities
                     .Where(r => !r.IsDeleted && (organizationId == null || r.OrganizationId == organizationId) && r.Status == ReservationStatus.CONFIRMED)
-                    .CountAsync(cancellationToken);
+                    .Select(r => new { r.BookingNo, r.GuestName, r.RoomNumber, r.CheckInDate, r.CheckOutDate })
+                    .Take(5)
+                    .ToListAsync(cancellationToken);
 
-                sb.AppendLine($"- In-House Active Stays: {activeStays.Count} records. Confirmed Incoming Reservations: {pendingReservations}.");
+                sb.AppendLine($"- In-House Active Stays: {activeStays.Count} checked-in guests. Confirmed Incoming Reservations: {pendingReservations.Count}.");
                 if (activeStays.Count > 0)
                 {
-                    sb.AppendLine($"- Current In-House Guests: {string.Join(", ", activeStays.Select(s => $"{s.GuestName} (Room {s.RoomNumber})"))}");
+                    sb.AppendLine($"  * Current In-House Guests: {string.Join("; ", activeStays.Select(s => $"{s.GuestName} in Room {s.RoomNumber} (Stay #{s.StayNo})"))}");
+                }
+                if (pendingReservations.Count > 0)
+                {
+                    sb.AppendLine($"  * Incoming Bookings: {string.Join("; ", pendingReservations.Select(p => $"{p.GuestName} -> Room {p.RoomNumber ?? "TBA"} on {p.CheckInDate}"))}");
                 }
             }
 
-            // E. Financial KPIs (STRICTLY ADMIN ONLY)
+            // H. Open Maintenance Tickets
+            if (isSuperOrAdmin || isMaintenance)
+            {
+                var tickets = await _queryContext.Repository<MaintenanceTicket>().Entities
+                    .Where(t => !t.IsDeleted && (organizationId == null || t.OrganizationId == organizationId) && t.Status != MaintenanceStatus.RESOLVED)
+                    .Select(t => new { t.TicketNo, t.RoomNumber, t.Title, t.Status, t.Priority })
+                    .Take(6)
+                    .ToListAsync(cancellationToken);
+
+                if (tickets.Count > 0)
+                {
+                    sb.AppendLine($"- Open Maintenance Tickets ({tickets.Count}): {string.Join("; ", tickets.Select(tk => $"Ticket #{tk.TicketNo}: {tk.Title} in Room {tk.RoomNumber} ({tk.Priority})"))}");
+                }
+            }
+
+            // I. Financial KPIs (STRICTLY ADMIN ONLY)
             if (isSuperOrAdmin && (financialKeywords || lowerMsg.Contains("kpi") || lowerMsg.Contains("overview") || lowerMsg.Contains("summary") || lowerMsg.Contains("report")))
             {
                 var latestAudit = await _queryContext.Repository<NightAudit>().Entities

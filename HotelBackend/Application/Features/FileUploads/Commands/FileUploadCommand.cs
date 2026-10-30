@@ -23,7 +23,7 @@ internal class FileUploadCommandHandler : IRequestHandler<FileUploadCommand, Res
 {
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".jpg", ".jpeg", ".png", ".webp", ".gif"
+        ".jpg", ".jpeg", ".png", ".webp", ".gif", ".pdf"
     };
 
     private readonly ICreateDocumentPath _createDocumentPath;
@@ -40,7 +40,7 @@ internal class FileUploadCommandHandler : IRequestHandler<FileUploadCommand, Res
 
         var extension = Path.GetExtension(request.File.FileName);
         if (!ImageExtensions.Contains(extension))
-            return Result<string>.BadRequest("Only jpg, jpeg, png, webp and gif images are allowed.");
+            return Result<string>.BadRequest("Only jpg, jpeg, png, webp, gif and pdf files are allowed.");
 
         var url = await _createDocumentPath.Create(request.File);
         return Result<string>.Success(url, "Image uploaded successfully");

@@ -1,4 +1,5 @@
 using Domain.Entities.Expenses;
+using Domain.Entities.Notifications;
 using Domain.Entities.Guests;
 using Domain.Entities.HotelSettings;
 using Domain.Entities.HotelStaffs;
@@ -22,6 +23,7 @@ namespace Persistence.DataContext;
 public partial class ApplicationDbContext
 {
     public DbSet<HotelProperty> HotelProperties { get; set; }
+    public DbSet<AdminNotification> AdminNotifications { get; set; }
     public DbSet<HotelSetting> HotelSettings { get; set; }
     public DbSet<RoomType> RoomTypes { get; set; }
     public DbSet<Room> Rooms { get; set; }

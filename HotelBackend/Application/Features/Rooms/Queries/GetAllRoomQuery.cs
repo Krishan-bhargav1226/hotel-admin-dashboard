@@ -1,12 +1,13 @@
 using Application.Dto.Rooms;
 using Application.Features.Commons;
+using Application.Interfaces.Repositories.UserIdAndOrganizationIds;
 using Application.Interfaces.UnitOfWorkRepositories;
 using AutoMapper;
 using Domain.Entities.Rooms;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Shared;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 
 namespace Application.Features.Rooms.Queries;
 
@@ -24,16 +25,30 @@ internal class GetAllRoomQueryHandler : IRequestHandler<GetAllRoomQuery, Paginat
 {
     private readonly IQueryContext _queryContext;
     private readonly IMapper _mapper;
+    private readonly IUserIdAndOrganizationIdRepository _caller;
 
-    public GetAllRoomQueryHandler(IQueryContext queryContext, IMapper mapper)
+    public GetAllRoomQueryHandler(IQueryContext queryContext, IMapper mapper, IUserIdAndOrganizationIdRepository caller)
     {
         _queryContext = queryContext;
         _mapper = mapper;
+        _caller = caller;
     }
 
     public async Task<PaginatedResult<GetRoomDto>> Handle(GetAllRoomQuery request, CancellationToken cancellationToken)
     {
         var query = _queryContext.Repository<Room>().Entities.Include(x => x.RoomType).Include(x => x.Property).AsQueryable();
+        var current = await _caller.Get();
+        if (!current.IsSuperAdmin && !current.IsAdmin)
+        {
+            if (current.PropertyId != null)
+            {
+                var hotelCount = await _queryContext.Repository<Domain.Entities.Properties.HotelProperty>().Entities.CountAsync(cancellationToken);
+                var propertyId = current.PropertyId;
+                query = hotelCount <= 1
+                    ? query.Where(x => x.PropertyId == propertyId || x.PropertyId == null)
+                    : query.Where(x => x.PropertyId == propertyId);
+            }
+        }
 
         if (!string.IsNullOrWhiteSpace(request.Search))
         {

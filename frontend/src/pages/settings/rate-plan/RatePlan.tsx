@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Box } from "@mui/material";
 import toast from "react-hot-toast";
 import UISubmitButton from "../../../components/ui/buttons/UISubmitButton";
@@ -18,6 +18,15 @@ const RatePlan = () => {
   const [update, { isLoading: updating }] = useUpdateRatePlanMutation();
   const [remove] = useDeleteRatePlanMutation();
   const [drawer, setDrawer] = useState<{ open: boolean; item: RatePlanModel | null }>({ open: false, item: null });
+
+  useEffect(() => {
+    setDrawer((current) => {
+      if (!current.open || !current.item) return current;
+      const next = plans.find((item) => item.id === current.item?.id);
+      if (!next) return { ...current, open: false, item: null };
+      return next === current.item ? current : { ...current, item: next };
+    });
+  }, [plans]);
   const plan = drawer.item;
   const initialValues: PlanForm = {
     name: plan?.name ?? "", kind: plan?.kind ?? "HOURLY", rate: plan ? String(plan.rate) : "",

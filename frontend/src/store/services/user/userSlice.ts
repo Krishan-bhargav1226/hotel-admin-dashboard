@@ -13,12 +13,15 @@ export interface RegisteredUser {
   phoneNumber?: string;
   createdDate?: string;
   isActive: boolean;
+  emailConfirmed: boolean;
+  propertyId?: number | null;
   roles: UserRoleItem[];
 }
 
 export interface UpdateUserRolePayload {
   userId: string;
   roles: string[];
+  propertyId?: number | null;
 }
 
 export const userApi = hotelApi.injectEndpoints({
@@ -27,7 +30,7 @@ export const userApi = hotelApi.injectEndpoints({
       query: (params) => {
         const page = params?.pageNumber || 1;
         const size = params?.pageSize || 50;
-        return `/user/all?pageNumber=${page}&pageSize=${size}`;
+        return `/user?pageNumber=${page}&pageSize=${size}`;
       },
       transformResponse: (response: any): RegisteredUser[] => {
         const raw = Array.isArray(response)
@@ -41,6 +44,8 @@ export const userApi = hotelApi.injectEndpoints({
           phoneNumber: item.phoneNumber || "",
           createdDate: item.createdDate || "",
           isActive: item.isActive !== false,
+          emailConfirmed: item.emailConfirmed === true,
+          propertyId: item.propertyId == null ? null : Number(item.propertyId),
           roles: Array.isArray(item.roles)
             ? item.roles.map((r: any) => ({
                 id: String(r.id || ""),
@@ -53,10 +58,10 @@ export const userApi = hotelApi.injectEndpoints({
     }),
 
     updateUserRole: builder.mutation<any, UpdateUserRolePayload>({
-      query: ({ userId, roles }) => ({
+      query: ({ userId, roles, propertyId }) => ({
         url: `/user/${userId}/role`,
         method: "PUT",
-        body: roles,
+        body: { roles, propertyId: propertyId ?? null },
       }),
       invalidatesTags: ["Staff"],
     }),

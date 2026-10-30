@@ -136,6 +136,9 @@ function CheckInFormContent({
   onSubmit,
 }: CheckInFormContentProps) {
   const { values, setValues, dirty, isSubmitting } = useFormikContext<CheckInFormValues>();
+  const guestIdsReady =
+    values.members.length > 0 &&
+    values.members.every((member) => Boolean(member.idDocumentId || member.isExistingUploaded));
   const [currentStep, setCurrentStep] = useState(1);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
 
@@ -215,7 +218,13 @@ function CheckInFormContent({
       />
 
       {/* Stepper indicator */}
-      <CheckInStepper currentStep={currentStep} onStepClick={setCurrentStep} />
+      <CheckInStepper
+        currentStep={currentStep}
+        onStepClick={(step) => {
+          if (step > currentStep && step > 1 && !guestIdsReady) return;
+          setCurrentStep(step);
+        }}
+      />
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-6">
         {/* Left Column: Form Steps */}
@@ -239,6 +248,7 @@ function CheckInFormContent({
                 <Button
                   type="button"
                   variant="primary"
+                  disabled={!guestIdsReady}
                   onClick={() => setCurrentStep(2)}
                   className="gap-2"
                 >

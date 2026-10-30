@@ -3,6 +3,8 @@ using Application.Features.Commons;
 using Application.Interfaces.UnitOfWorkRepositories;
 using AutoMapper;
 using Domain.Entities.Guests;
+using Domain.Common.Enums.Hotels;
+using Domain.Entities.Stays;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Shared;
@@ -42,6 +44,26 @@ internal class GetAllGuestQueryHandler : IRequestHandler<GetAllGuestQuery, Pagin
         if (request.IsFlagged != null)
             query = query.Where(x => x.IsFlagged == request.IsFlagged);
         query = query.OrderByDescending(x => x.CreatedDate);
-        return await ListQuery.ToPagedResultAsync<Guest, GetGuestDto>(query, request.PageNumber, request.PageSize, _mapper, cancellationToken);
+        var paged = await ListQuery.ToPagedResultAsync<Guest, GetGuestDto>(query, request.PageNumber, request.PageSize, _mapper, cancellationToken);
+        var ids = paged.Data.Select(x => x.Id).ToList();
+        if (ids.Count == 0)
+            return paged;
+
+        var stays = await _queryContext.Repository<Stay>().Entities
+            .Where(s => ids.Contains(s.GuestId))
+            .Select(s => new { s.GuestId, s.TotalAmount, s.Status, s.CheckInAt, s.CheckOutAt })
+            .ToListAsync(cancellationToken);
+
+        var grouped = stays.GroupBy(s => s.GuestId).ToDictionary(g => g.Key, g => g.ToList());
+        foreach (var guest in paged.Data)
+        {
+            if (!grouped.TryGetValue(guest.Id, out var rows))
+                continue;
+            guest.Visits = rows.Count;
+            guest.TotalSpent = rows.Where(s => s.Status == StayStatus.COMPLETED).Sum(s => s.TotalAmount);
+            guest.LastVisitAt = rows.Max(s => s.CheckOutAt ?? s.CheckInAt);
+        }
+
+        return paged;
     }
 }

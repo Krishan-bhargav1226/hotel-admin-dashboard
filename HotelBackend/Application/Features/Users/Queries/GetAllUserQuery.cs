@@ -1,6 +1,5 @@
 using Application.Dto.Users.GetUserDtos;
 using AutoMapper;
-using Domain.Common.Enums.Users;
 using Domain.Entities.ApplicationUsers;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
@@ -22,6 +21,7 @@ internal class GetAllUserQueryHandler : IRequestHandler<GetAllUserQuery, Paginat
 {
     private readonly IMapper _mapper;
     private readonly UserManager<User> _userManager;
+
     public GetAllUserQueryHandler(IMapper mapper, UserManager<User> userManager)
     {
         _mapper = mapper;
@@ -30,30 +30,40 @@ internal class GetAllUserQueryHandler : IRequestHandler<GetAllUserQuery, Paginat
 
     public async Task<PaginatedResult<GetUserDto>> Handle(GetAllUserQuery request, CancellationToken cancellationToken)
     {
-        var search = request;
+        var name = request.Name?.Trim().ToLower();
+        var email = request.Email?.Trim().ToLower();
+        var mobile = request.MobileNumber?.Trim();
 
         var queryable = _userManager.Users
-                              .Include(x => x.UserAddress).ThenInclude(x => x.City)
-                              .Include(x => x.UserAddress).ThenInclude(x => x.State)
-                              .Include(x => x.UserAddress).ThenInclude(x => x.Country)
-                              .Include(x => x.UserProfile)
-                              .Include(x => x.UserRoles).ThenInclude(x => x.Role)
-                              .Where(u =>
-                              (string.IsNullOrEmpty(search.Name) || (u.FirstName != null && u.FirstName.ToLower().Contains(search.Name.ToLower())) || (u.LastName != null && u.LastName.ToLower().Contains(search.Name.ToLower())))
-                               && (string.IsNullOrEmpty(search.MobileNumber) || (u.PhoneNumber != null && u.PhoneNumber.Contains(search.MobileNumber)))
-                               && (string.IsNullOrEmpty(search.Email) || (u.Email != null && u.Email.ToLower().Contains(search.Email.ToLower()))))
-                              .AsQueryable();
+            .Include(x => x.UserRoles)
+            .ThenInclude(x => x.Role)
+            .Where(u =>
+                (string.IsNullOrEmpty(name) || (u.FirstName != null && u.FirstName.ToLower().Contains(name)) || (u.LastName != null && u.LastName.ToLower().Contains(name)))
+                && (string.IsNullOrEmpty(mobile) || (u.PhoneNumber != null && u.PhoneNumber.Contains(mobile)))
+                && (string.IsNullOrEmpty(email) || (u.Email != null && u.Email.ToLower().Contains(email))));
 
-        var count = await queryable.CountAsync();
+        var count = await queryable.CountAsync(cancellationToken);
+        List<User> users;
+        int page;
+        int size;
 
-        var users = await queryable
-                           .OrderByDescending(x => x.CreatedDate)
-                           .Skip((search.PageNumber - 1) * search.PageSize)
-                           .Take(search.PageSize)
-                           .ToListAsync();
+        if (request.PageNumber == 0 && request.PageSize == 0)
+        {
+            users = await queryable.OrderByDescending(x => x.CreatedDate).ToListAsync(cancellationToken);
+            page = 1;
+            size = count == 0 ? 1 : count;
+        }
+        else
+        {
+            page = request.PageNumber <= 0 ? 1 : request.PageNumber;
+            size = request.PageSize <= 0 ? 10 : request.PageSize;
+            users = await queryable
+                .OrderByDescending(x => x.CreatedDate)
+                .Skip((page - 1) * size)
+                .Take(size)
+                .ToListAsync(cancellationToken);
+        }
 
-        var mapUser = _mapper.Map<List<GetUserDto>>(users);
-
-        return PaginatedResult<GetUserDto>.Create(mapUser, count, search.PageNumber, search.PageSize, 200);
+        return PaginatedResult<GetUserDto>.Create(_mapper.Map<List<GetUserDto>>(users), count, page, size, 200);
     }
 }

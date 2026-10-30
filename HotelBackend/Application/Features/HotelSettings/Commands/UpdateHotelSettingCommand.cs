@@ -92,8 +92,8 @@ internal class UpdateHotelSettingCommandHandler : IRequestHandler<UpdateHotelSet
         setting.Fssai = request.Fssai;
         setting.UpiId = request.UpiId;
         setting.TaxPercent = request.TaxPercent;
-        setting.CgstPercent = request.CgstPercent > 0 ? request.CgstPercent : request.TaxPercent / 2m;
-        setting.SgstPercent = request.SgstPercent > 0 ? request.SgstPercent : request.TaxPercent / 2m;
+        setting.CgstPercent = request.CgstPercent;
+        setting.SgstPercent = request.SgstPercent;
         setting.SacCodeAccommodation = request.SacCodeAccommodation;
         setting.SacCodeFood = request.SacCodeFood;
         setting.InvoicePrefix = request.InvoicePrefix;

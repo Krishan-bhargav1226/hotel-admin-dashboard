@@ -82,6 +82,7 @@ export const hotelApi = createApi({
     "LostAndFound",
     "NightAudit",
     "Report",
+    "Notification",
   ],
   endpoints: () => ({}),
 });
@@ -106,6 +107,7 @@ export const ALL_TAGS = [
   "LostAndFound",
   "NightAudit",
   "Report",
+  "Notification",
 ] as const;
 
 type RunResult<T> =

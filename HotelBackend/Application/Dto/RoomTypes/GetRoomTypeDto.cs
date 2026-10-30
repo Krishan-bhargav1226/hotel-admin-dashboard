@@ -1,6 +1,6 @@
 using Application.Common.Mappings.Commons;
 using Application.Dto.CommonDtos;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 using Domain.Entities.RoomTypes;
 
 namespace Application.Dto.RoomTypes;

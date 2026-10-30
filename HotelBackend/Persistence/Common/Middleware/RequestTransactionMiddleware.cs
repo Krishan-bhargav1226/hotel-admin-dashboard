@@ -19,10 +19,11 @@ public sealed class RequestTransactionMiddleware
         if (HttpMethods.IsGet(context.Request.Method) || 
             HttpMethods.IsOptions(context.Request.Method) ||
             HttpMethods.IsHead(context.Request.Method) ||
-            path.StartsWith("/api/chat") || 
-            path.StartsWith("/api/fileupload") || 
-            path.StartsWith("/swagger") || 
-            path.StartsWith("/api-docs"))
+            path.StartsWith("/api/chat") ||
+            path.StartsWith("/api/fileupload") ||
+            path.StartsWith("/swagger") ||
+            path.StartsWith("/api-docs") ||
+            path is "/api/user/login" or "/api/user/verify-otp" or "/api/user/forget-password" or "/api/user/reset-password" or "/api/user/resend-verification")
         {
             await _next(context);
             return;

@@ -75,7 +75,7 @@ export default function MultiPropertyLiveGrid({
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <span className="text-[11px] font-medium text-brand-600 dark:text-brand-400">
-                      {prop.brandTier || "Luxury Heritage"}
+                      {prop.brandTier || "—"}
                     </span>
                     <h3 className="truncate text-base font-bold text-slate-900 dark:text-white" title={prop.name}>
                       {prop.name}
@@ -141,7 +141,7 @@ export default function MultiPropertyLiveGrid({
                 <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
                   <span className="flex items-center gap-1">
                     <User className="size-3.5 text-slate-400" />
-                    <span className="font-medium text-slate-700 dark:text-slate-300">{prop.managerName || "GM Desk"}</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-300">{prop.managerName || "—"}</span>
                   </span>
                   <span className="flex items-center gap-1 font-mono text-[11px]">
                     <Phone className="size-3 text-slate-400" />

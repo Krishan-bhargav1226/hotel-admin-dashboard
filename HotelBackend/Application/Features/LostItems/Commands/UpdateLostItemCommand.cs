@@ -3,7 +3,7 @@ using Application.Features.Commons;
 using Application.Interfaces.Repositories.UserIdAndOrganizationIds;
 using Application.Interfaces.UnitOfWorkRepositories;
 using AutoMapper;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 using Domain.Entities.LostItems;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -52,6 +52,8 @@ internal class UpdateLostItemCommandHandler : IRequestHandler<UpdateLostItemComm
             return Result<string>.BadRequest("LostItem does not exist.");
 
         _mapper.Map(request.CreateCommand, entity);
+        if (entity.Status == LostItemStatus.CLAIMED && entity.ClaimedAt == null)
+            entity.ClaimedAt = DateTime.UtcNow;
 
         await _unitOfWork.Repository<LostItem>().UpdateAsync(entity);
         await _unitOfWork.Save(cancellationToken);

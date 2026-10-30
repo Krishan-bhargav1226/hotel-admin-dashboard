@@ -1,8 +1,9 @@
 import { GUEST_LOOKUP_SCOPE, DEFAULT_HOTEL_ID } from "../utils/checkin/config";
 import type { CheckInPerson, RepeatGuestMatch } from "../pages/check-in/types";
 import { normalizeIdNumber } from "../utils/checkin/idValidators";
+import { API_BASE_URL } from "../store/services/baseQuery";
 
-const API_BASE = "http://localhost:7444/api";
+const API_BASE = API_BASE_URL;
 
 const getAuthHeaders = (): HeadersInit => {
   const token =
@@ -16,7 +17,8 @@ const getAuthHeaders = (): HeadersInit => {
 const resolveImageUrl = (img?: string | null): string => {
   if (!img) return "";
   if (img.startsWith("data:") || img.startsWith("http://") || img.startsWith("https://")) return img;
-  return `http://localhost:7444${img.startsWith("/") ? "" : "/"}${img}`;
+  const origin = API_BASE.replace(/\/api$/, "");
+  return `${origin}${img.startsWith("/") ? "" : "/"}${img}`;
 };
 
 export async function lookupGuestByPhone(
@@ -135,7 +137,9 @@ export async function uploadIdDocument(file: File): Promise<{
     });
 
     if (!res.ok) {
-      throw new Error(`Upload failed with status ${res.status}`);
+      const body = await res.json().catch(() => null);
+      const message = Array.isArray(body?.messages) ? body.messages.join(" ") : body?.detail;
+      throw new Error(message || `Upload failed with status ${res.status}`);
     }
 
     const data = await res.json();
@@ -150,15 +154,8 @@ export async function uploadIdDocument(file: File): Promise<{
       previewUrl,
     };
   } catch (err) {
-    console.warn("Backend file upload error, falling back to client blob:", err);
-    const objectUrl = URL.createObjectURL(file);
-    return {
-      id: objectUrl,
-      fileName: file.name,
-      contentType: file.type || "image/jpeg",
-      fileSizeBytes: file.size,
-      previewUrl: objectUrl,
-    };
+    if (err instanceof Error) throw err;
+    throw new Error("Failed to upload ID document. Please try again.");
   }
 }
 

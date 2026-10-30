@@ -4,6 +4,7 @@ import { BedDouble, X } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import type { HotelProperty } from "../../../utils/interfaces/Interface";
 import { useAddRoomToPropertyMutation } from "../../../store/services/property/propertySlice";
+import { useGetRoomTypesQuery } from "../../../store/services/room-type/roomTypeSlice";
 import { getErrorMessage } from "../../../utils/helper/helper";
 
 interface CrossPropertyAddRoomModalProps {
@@ -21,10 +22,11 @@ export default function CrossPropertyAddRoomModal({
 }: CrossPropertyAddRoomModalProps) {
   const [propertyId, setPropertyId] = useState("");
   const [number, setNumber] = useState("");
-  const [floor, setFloor] = useState("Floor 1");
-  const [roomType, setRoomType] = useState("Deluxe Heritage Room");
-  const [price, setPrice] = useState(5500);
+  const [floor, setFloor] = useState("");
+  const [roomTypeId, setRoomTypeId] = useState("");
+  const [price, setPrice] = useState("");
 
+  const { data: roomTypes = [] } = useGetRoomTypesQuery(undefined, { skip: !open });
   const [addRoom, { isLoading }] = useAddRoomToPropertyMutation();
 
   useEffect(() => {
@@ -41,14 +43,16 @@ export default function CrossPropertyAddRoomModal({
     e.preventDefault();
     if (!propertyId) return toast.error("Please select a target hotel property");
     if (!number.trim()) return toast.error("Please enter a room number");
+    if (!roomTypeId) return toast.error("Choose a room type");
+    if (!price || Number(price) <= 0) return toast.error("Enter the base tariff");
 
     try {
       await addRoom({
         propertyId,
         number: number.trim(),
-        floor,
-        roomType,
-        price: Number(price) || 4500,
+        floor: floor.trim(),
+        roomTypeId,
+        price: Number(price),
       }).unwrap();
       const target = properties.find((p) => p.id === propertyId);
       toast.success(`Room ${number} added to ${target?.name || "property"}!`);
@@ -84,7 +88,7 @@ export default function CrossPropertyAddRoomModal({
             >
               {properties.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} ({p.location.split(",")[0]} - {p.roomCount} keys)
+                  {p.name}{p.location ? ` (${p.location.split(",")[0]}` : ""}{p.roomCount ? `${p.location ? " - " : " ("}${p.roomCount} keys)` : ""}{(p.location || p.roomCount) ? ")" : ""}
                 </option>
               ))}
             </select>
@@ -104,33 +108,29 @@ export default function CrossPropertyAddRoomModal({
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">Floor</label>
-              <select
+              <input
+                type="text"
                 value={floor}
                 onChange={(e) => setFloor(e.target.value)}
+                placeholder="e.g. Floor 1"
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-xs focus:border-brand-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-              >
-                <option value="Floor 1">Floor 1</option>
-                <option value="Floor 2">Floor 2</option>
-                <option value="Floor 3">Floor 3</option>
-                <option value="Floor 4">Floor 4</option>
-                <option value="Penthouse">Penthouse</option>
-                <option value="Pool Villa">Pool Villa</option>
-              </select>
+              />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">Room Category</label>
+              <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">Room type</label>
               <select
-                value={roomType}
-                onChange={(e) => setRoomType(e.target.value)}
+                value={roomTypeId}
+                onChange={(e) => setRoomTypeId(e.target.value)}
+                required
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-xs focus:border-brand-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
               >
-                <option value="Deluxe Heritage Room">Deluxe Heritage Room</option>
-                <option value="Executive Club Suite">Executive Club Suite</option>
-                <option value="Royal Palace Suite">Royal Palace Suite</option>
-                <option value="Presidential Villa">Presidential Villa</option>
+                <option value="">{roomTypes.length === 0 ? "No room types yet" : "Select a room type"}</option>
+                {roomTypes.map((type) => (
+                  <option key={type.id} value={type.id}>{type.name}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -138,8 +138,9 @@ export default function CrossPropertyAddRoomModal({
               <input
                 type="number"
                 value={price}
-                onChange={(e) => setPrice(Number(e.target.value))}
-                min={500}
+                onChange={(e) => setPrice(e.target.value)}
+                min={1}
+                required
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-mono font-bold text-slate-800 shadow-xs focus:border-brand-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
               />
             </div>

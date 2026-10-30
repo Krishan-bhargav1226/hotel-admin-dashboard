@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Plus, Search } from "lucide-react";
@@ -30,6 +30,13 @@ export default function ChainPortfolio() {
   const [query, setQuery] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingProperty, setEditingProperty] = useState<HotelProperty | null>(null);
+
+  useEffect(() => {
+    setEditingProperty((current) => {
+      if (!current) return current;
+      return properties.find((property) => property.id === current.id) ?? null;
+    });
+  }, [properties]);
 
   const filteredProperties = properties.filter((p) => {
     const q = query.toLowerCase();

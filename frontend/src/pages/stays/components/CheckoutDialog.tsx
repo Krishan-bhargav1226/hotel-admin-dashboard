@@ -91,7 +91,7 @@ export default function CheckoutDialog({ stay, onClose, onDone }: CheckoutDialog
         <div className="flex items-start justify-between border-b border-slate-200 pb-3">
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-brand-700">Official Guest Folio Statement</span>
-            <h3 className="text-lg font-bold text-slate-900 mt-0.5">{settings?.hotelName || "Grand Horizon Hotel"}</h3>
+            <h3 className="text-lg font-bold text-slate-900 mt-0.5">{settings?.hotelName || "Hotel"}</h3>
             <p className="text-xs text-slate-500">Folio No: <strong className="font-mono text-slate-700">{stay.stayNo}</strong> · Room {stay.roomNumber}</p>
           </div>
           <div className="text-right text-xs">

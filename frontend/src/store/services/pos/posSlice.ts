@@ -36,7 +36,7 @@ const posApi = hotelApi.injectEndpoints({
     }),
 
     saveMenuItem: builder.mutation<
-      MenuItem,
+      void,
       Partial<MenuItem> & { name: string; price: number; category: MenuItem["category"] }
     >({
       query: (payload) => {
@@ -66,7 +66,6 @@ const posApi = hotelApi.injectEndpoints({
           };
         }
       },
-      transformResponse: (res: any) => mapBackendPosItem(res?.data ?? res),
       invalidatesTags: ["MenuItem"],
     }),
 
@@ -127,10 +126,10 @@ const posApi = hotelApi.injectEndpoints({
           notes: payload.notes?.trim() || null,
         },
       }),
-      transformResponse: (_res: any, _meta: any, arg: CreateServiceOrderPayload): ServiceOrder => {
+      transformResponse: (res: unknown, _meta: unknown, arg: CreateServiceOrderPayload): ServiceOrder => {
         const subtotal = arg.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
         return {
-          id: String(_res?.data ?? Date.now()),
+          id: String(typeof res === "number" ? res : Date.now()),
           orderNo: `ORD-${Date.now().toString().slice(-4)}`,
           roomId: arg.roomId,
           roomNumber: arg.roomId,
@@ -140,7 +139,7 @@ const posApi = hotelApi.injectEndpoints({
           subtotal,
           taxAmount: Math.round(subtotal * 0.05),
           totalAmount: Math.round(subtotal * 1.05),
-          status: "DELIVERED",
+          status: "PENDING",
           billedToRoom: arg.billedToRoom,
           paymentMode: arg.paymentMode,
           notes: arg.notes,

@@ -4,7 +4,7 @@ using Application.Interfaces.Repositories.UserIdAndOrganizationIds;
 using Application.Interfaces.UnitOfWorkRepositories;
 using AutoMapper;
 using Domain.Entities.Expenses;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Shared;

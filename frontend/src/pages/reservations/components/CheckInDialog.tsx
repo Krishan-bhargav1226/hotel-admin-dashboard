@@ -1,4 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
+import { useEffect, useMemo } from "react";
 import { Button, DialogActions, FormControl, InputLabel, MenuItem, Select, TextField } from "@mui/material";
 import UiDialog from "../../../components/ui/models/UiDialog";
 import UISubmitButton from "../../../components/ui/buttons/UISubmitButton";
@@ -23,13 +24,31 @@ interface CheckInDialogProps {
   setIdNumber: Dispatch<SetStateAction<string>>;
   address: string;
   setAddress: Dispatch<SetStateAction<string>>;
+  blockedRoomIds?: string[];
   isConverting: boolean;
 }
 
 export default function CheckInDialog({
   reservation, onClose, onConfirm, rooms, roomTypes, ratePlans, roomId, setRoomId,
-  planId, setPlanId, idType, setIdType, idNumber, setIdNumber, address, setAddress, isConverting,
+  planId, setPlanId, idType, setIdType, idNumber, setIdNumber, address, setAddress, blockedRoomIds = [], isConverting,
 }: CheckInDialogProps) {
+  const room = rooms.find((item) => item.id === roomId);
+  const applicablePlans = useMemo(
+    () =>
+      ratePlans.filter(
+        (plan) =>
+          plan.isActive &&
+          (plan.roomTypeIds.length === 0 || (room && plan.roomTypeIds.includes(room.roomTypeId))),
+      ),
+    [ratePlans, room],
+  );
+
+  useEffect(() => {
+    if (!reservation) return;
+    if (applicablePlans.some((plan) => plan.id === planId)) return;
+    setPlanId(applicablePlans[0]?.id || "");
+  }, [reservation, applicablePlans, planId, setPlanId]);
+
   return (
     <UiDialog open={!!reservation} onClose={onClose} title={`Express Check-In: ${reservation?.guestName}`} maxWidth="sm">
       <div className="space-y-4 pt-1">
@@ -46,7 +65,7 @@ export default function CheckInDialog({
         <FormControl fullWidth size="small" required>
           <InputLabel>Assign Room *</InputLabel>
           <Select value={roomId} label="Assign Room *" onChange={(event) => setRoomId(event.target.value)}>
-            {rooms.filter((room) => room.status === "AVAILABLE").map((room) => {
+            {rooms.filter((room) => room.status === "AVAILABLE" && !blockedRoomIds.includes(room.id)).map((room) => {
               const roomType = roomTypes.find((type) => type.id === room.roomTypeId);
               return <MenuItem key={room.id} value={room.id}>Room {room.number} - {roomType?.name} ({room.floor})</MenuItem>;
             })}
@@ -55,7 +74,7 @@ export default function CheckInDialog({
         <FormControl fullWidth size="small" required>
           <InputLabel>Rate Plan *</InputLabel>
           <Select value={planId} label="Rate Plan *" onChange={(event) => setPlanId(event.target.value)}>
-            {ratePlans.map((plan) => <MenuItem key={plan.id} value={plan.id}>{plan.name} - {formatCurrency(plan.rate)}</MenuItem>)}
+            {applicablePlans.map((plan) => <MenuItem key={plan.id} value={plan.id}>{plan.name} - {formatCurrency(plan.rate)}</MenuItem>)}
           </Select>
         </FormControl>
         <div className="grid grid-cols-2 gap-3">

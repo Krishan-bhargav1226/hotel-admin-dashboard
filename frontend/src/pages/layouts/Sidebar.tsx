@@ -25,7 +25,7 @@ export default function Sidebar({ sidebarOpen = true, onNavigate, onToggle }: Si
   const { user, logout } = useAuth();
   const { data: settings } = useGetSettingsQuery();
   const { role } = useDeskRole();
-  const hotelName = settings?.hotelName || "Grand Horizon";
+  const hotelName = settings?.hotelName || "Hotel";
   const roleLabel =
     role === "RECEPTION"
       ? "Front desk"
@@ -41,12 +41,6 @@ export default function Sidebar({ sidebarOpen = true, onNavigate, onToggle }: Si
     .map((group) => ({
       label: group,
       items: sidebarItems.filter((item) => {
-        if (item.link === AppEndPoints.NIGHT_AUDIT && settings?.enableNightAudit === false) {
-          return false;
-        }
-        if (item.link === AppEndPoints.LOST_FOUND && settings?.enableLostAndFound === false) {
-          return false;
-        }
         return item.group === group && canAccessPath(role, item.link);
       }),
     }))

@@ -24,7 +24,11 @@ import {
   useLoginUserMutation,
   useRegisterUserMutation,
   useVerifyOtpMutation,
+  useResendVerificationMutation,
 } from "../../store/services/auth/authSlice";
+
+const OTP_LENGTH = 6;
+const emptyOtp = () => Array.from({ length: OTP_LENGTH }, () => "");
 
 interface LoginLocationState {
   from?: { pathname?: string };
@@ -39,6 +43,7 @@ export default function LoginPage() {
 
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [step, setStep] = useState<"credentials" | "otp">("credentials");
+  const [otpPurpose, setOtpPurpose] = useState<"register" | "login">("login");
   const [username, setUsername] = useState(locationState?.prefillUsername ?? "");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
@@ -58,7 +63,7 @@ export default function LoginPage() {
   const [showSignupPassword, setShowSignupPassword] = useState(false);
 
   // 4-Digit OTP State
-  const [otpValues, setOtpValues] = useState<string[]>(["", "", "", ""]);
+  const [otpValues, setOtpValues] = useState<string[]>(emptyOtp());
   const [otpEmail, setOtpEmail] = useState("");
   const [resendCooldown, setResendCooldown] = useState(60);
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -66,6 +71,7 @@ export default function LoginPage() {
   const [loginUserApi] = useLoginUserMutation();
   const [registerUserApi] = useRegisterUserMutation();
   const [verifyOtpApi] = useVerifyOtpMutation();
+  const [resendVerification] = useResendVerificationMutation();
 
   // Cooldown countdown for resend OTP
   useEffect(() => {
@@ -97,8 +103,8 @@ export default function LoginPage() {
       setErrorMessage("Email address is required.");
       return;
     }
-    if (signupForm.password.length < 6) {
-      setErrorMessage("Password must be at least 6 characters long.");
+    if (signupForm.password.length < 8 || !/[A-Z]/.test(signupForm.password) || !/[a-z]/.test(signupForm.password) || !/\d/.test(signupForm.password)) {
+      setErrorMessage("Password must be at least 8 characters and include upper, lower, and a digit.");
       return;
     }
     if (signupForm.password !== signupForm.confirmPassword) {
@@ -116,11 +122,13 @@ export default function LoginPage() {
         password: signupForm.password,
       }).unwrap();
 
-      toast.success("Account created successfully as a normal user! You can now sign in.");
-      setUsername(signupForm.email.trim());
+      toast.success("Account saved. Enter the 6-digit code from your email.");
+      setOtpPurpose("register");
+      setOtpEmail(signupForm.email.trim());
       setPassword(signupForm.password);
-      setMode("signin");
-      setStep("credentials");
+      setStep("otp");
+      setOtpValues(emptyOtp());
+      setResendCooldown(60);
     } catch (err: unknown) {
       const errorObj = err as { data?: { messages?: string[]; title?: string }; message?: string };
       const msg =
@@ -134,31 +142,31 @@ export default function LoginPage() {
     }
   };
 
-  const handleCredentialsSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const signIn = async (code: string, secret: string) => {
+    setUsername(code);
+    setPassword(secret);
     setErrorMessage(null);
     setIsLoading(true);
 
     try {
-      // 1. Try real backend login
-      const response = await loginUserApi({ code: username, password }).unwrap();
+      const response = await loginUserApi({ code, password: secret }).unwrap();
 
       if (response.requiresOtp) {
-        // Venue Admin requires 4-digit OTP sent via email
-        setOtpEmail(response.email || username);
+        setOtpPurpose("login");
+        setOtpEmail(response.email || code);
         setStep("otp");
-        setOtpValues(["", "", "", ""]);
+        setOtpValues(emptyOtp());
         setResendCooldown(60);
-        toast.success(`4-digit OTP sent to ${response.email || username}`);
+        toast.success(`6-digit OTP sent to ${response.email || code}`);
         return;
       }
 
       const userDeskRole: DeskRole = mapBackendRole(response.role);
-      const displayName = [response.firstName, response.lastName].filter(Boolean).join(" ").trim() || username.split("@")[0];
+      const displayName = [response.firstName, response.lastName].filter(Boolean).join(" ").trim() || code.split("@")[0];
 
       const targetUser = {
         id: response.userId || "usr-user",
-        email: response.email || username,
+        email: response.email || code,
         name: displayName,
         role: userDeskRole,
         title:
@@ -171,7 +179,7 @@ export default function LoginPage() {
             : "Registered User",
         department: userDeskRole === "USER" ? "Registered User" : "Hospitality Operations",
         phone: "",
-        propertyId: userDeskRole === "SUPER_ADMIN" ? "ALL" : "",
+        propertyId: response.propertyId ? String(response.propertyId) : userDeskRole === "SUPER_ADMIN" ? "ALL" : "",
         propertyName: userDeskRole === "SUPER_ADMIN" ? "Chain Headquarters" : "",
       };
 
@@ -187,6 +195,11 @@ export default function LoginPage() {
     }
   };
 
+  const handleCredentialsSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    await signIn(username, password);
+  };
+
   const handleOtpChange = (index: number, value: string) => {
     // Only accept numeric digit
     const cleaned = value.replace(/\D/g, "");
@@ -196,7 +209,7 @@ export default function LoginPage() {
     setErrorMessage(null);
 
     // Auto-advance to next input box
-    if (cleaned && index < 3) {
+    if (cleaned && index < OTP_LENGTH - 1) {
       otpInputRefs.current[index + 1]?.focus();
     }
   };
@@ -209,16 +222,16 @@ export default function LoginPage() {
 
   const handleOtpPaste = (e: ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
-    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 4);
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, OTP_LENGTH);
     if (!pasted) return;
 
-    const newValues = ["", "", "", ""];
+    const newValues = emptyOtp();
     for (let i = 0; i < pasted.length; i++) {
       newValues[i] = pasted[i];
     }
     setOtpValues(newValues);
-    if (pasted.length === 4) {
-      otpInputRefs.current[3]?.focus();
+    if (pasted.length === OTP_LENGTH) {
+      otpInputRefs.current[OTP_LENGTH - 1]?.focus();
     } else {
       otpInputRefs.current[pasted.length]?.focus();
     }
@@ -227,8 +240,8 @@ export default function LoginPage() {
   const handleOtpSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fullOtp = otpValues.join("");
-    if (fullOtp.length < 4) {
-      setErrorMessage("Please enter all 4 digits of the verification code.");
+    if (fullOtp.length < OTP_LENGTH) {
+      setErrorMessage(`Please enter all ${OTP_LENGTH} digits of the verification code.`);
       return;
     }
 
@@ -238,6 +251,14 @@ export default function LoginPage() {
     try {
       const otpNumber = parseInt(fullOtp, 10);
       const token = await verifyOtpApi({ username: otpEmail, otp: otpNumber }).unwrap();
+      if (otpPurpose === "register") {
+        toast.success("Email verified. A Super Admin will assign your hotel and role. You can sign in after that.");
+        setUsername(otpEmail);
+        setMode("signin");
+        setStep("credentials");
+        setOtpValues(emptyOtp());
+        return;
+      }
       const displayName = otpEmail.split("@")[0] || "Admin";
       const targetUser = {
         id: "usr-user",
@@ -256,7 +277,7 @@ export default function LoginPage() {
       navigate(locationState?.from?.pathname || AppEndPoints.DASHBOARD, { replace: true });
     } catch (err: unknown) {
       const errorObj = err as { data?: { messages?: string[] }; message?: string };
-      const msg = errorObj?.data?.messages?.[0] || errorObj?.message || "Incorrect 4-digit OTP. Please check the code sent to your email.";
+      const msg = errorObj?.data?.messages?.[0] || errorObj?.message || "Incorrect code. Check the email and try again.";
       setErrorMessage(msg);
     } finally {
       setIsLoading(false);
@@ -269,10 +290,14 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      await loginUserApi({ code: otpEmail, password }).unwrap();
+      if (otpPurpose === "register") {
+        await resendVerification({ userName: otpEmail }).unwrap();
+      } else {
+        await loginUserApi({ code: otpEmail, password }).unwrap();
+      }
       setResendCooldown(60);
-      setOtpValues(["", "", "", ""]);
-      toast.success(`A fresh 4-digit OTP has been sent to ${otpEmail}`);
+      setOtpValues(emptyOtp());
+      toast.success(`A fresh 6-digit code has been sent to ${otpEmail}`);
       otpInputRefs.current[0]?.focus();
     } catch {
       toast.error("Failed to resend code. Please try again.");
@@ -377,7 +402,7 @@ export default function LoginPage() {
                       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#c85638]">System Access</p>
                       <h2 className="mt-1 text-3xl font-semibold tracking-[-0.04em]">Sign in to your desk</h2>
                       <p className="mt-2 text-sm text-slate-500">
-                        Enter your credentials. Venue Admins require OTP, Super Admin & normal users sign in directly.
+                        Sign in with your hotel account. Hotel admins receive an email code after the password.
                       </p>
                     </div>
 
@@ -555,7 +580,7 @@ export default function LoginPage() {
                               type={showSignupPassword ? "text" : "password"}
                               value={signupForm.password}
                               onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
-                              placeholder="Min 6 characters"
+                              placeholder="Upper, lower, and a digit"
                               required
                               className="h-10 w-full rounded-xl border border-[#e6e1dc] bg-[#fcfbfa] pl-9 pr-9 text-sm text-slate-900 outline-none transition focus:border-[#d66c4e] focus:ring-4 focus:ring-[#d66c4e]/10"
                             />
@@ -590,7 +615,7 @@ export default function LoginPage() {
                           <ShieldCheck className="size-3.5 text-amber-700 shrink-0" /> Role Authority Note
                         </p>
                         <p className="mt-0.5 text-amber-800/90">
-                          You will be registered with standard normal user access. The Super Admin manages and assigns your desk authority (Front Desk, Hotel Admin, or Chain HQ).
+                          You will be saved as a normal user. Confirm the email code first. A Super Admin then assigns your hotel and role.
                         </p>
                       </div>
 
@@ -648,9 +673,9 @@ export default function LoginPage() {
                     <Sparkles className="size-3 text-amber-600" />
                     2-Step Verification Required
                   </span>
-                  <h2 className="text-3xl font-semibold tracking-[-0.04em] text-slate-900">Enter 4-Digit Code</h2>
+                  <h2 className="text-3xl font-semibold tracking-[-0.04em] text-slate-900">Enter 6-Digit Code</h2>
                   <p className="mt-2 text-sm text-slate-600 leading-relaxed">
-                    A 4-digit code has been sent to:
+                    A 6-digit code has been sent to:
                   </p>
                   <p className="mt-1 font-mono text-sm font-bold text-[#c85638] bg-[#fff5f2] px-3 py-1.5 rounded-lg border border-[#fbd4c9] inline-block">
                     {otpEmail}
@@ -667,7 +692,7 @@ export default function LoginPage() {
                   {/* 4 Separate Digits Box */}
                   <div>
                     <label className="block mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      4-Digit One-Time Password
+                      6-Digit One-Time Password
                     </label>
                     <div className="flex items-center justify-between gap-3 sm:gap-4">
                       {otpValues.map((digit, idx) => (
@@ -692,10 +717,10 @@ export default function LoginPage() {
 
                   <button
                     type="submit"
-                    disabled={isLoading || otpValues.join("").length < 4}
+                    disabled={isLoading || otpValues.join("").length < OTP_LENGTH}
                     className="group flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#c85638] px-4 text-sm font-semibold text-white shadow-[0_8px_20px_-10px_rgba(200,86,56,0.8)] transition hover:bg-[#ae482e] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {isLoading ? "Verifying code…" : "Verify & Sign in"}
+                    {isLoading ? "Verifying code…" : otpPurpose === "register" ? "Verify email" : "Verify & Sign in"}
                     {!isLoading ? <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" /> : null}
                   </button>
 
@@ -708,7 +733,7 @@ export default function LoginPage() {
                       className="inline-flex items-center gap-1 font-semibold text-[#c85638] hover:text-[#ae482e] disabled:text-slate-400 disabled:cursor-not-allowed transition"
                     >
                       <RefreshCw className={`size-3.5 ${isLoading ? "animate-spin" : ""}`} />
-                      {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend 4-digit code"}
+                      {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend 6-digit code"}
                     </button>
                   </div>
                 </form>

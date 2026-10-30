@@ -1,6 +1,6 @@
 using Application.Interfaces.Repositories.UserIdAndOrganizationIds;
 using Application.Interfaces.UnitOfWorkRepositories;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 using Domain.Entities.Rooms;
 using Domain.Entities.ServiceOrders;
 using Domain.Entities.Stays;
@@ -91,7 +91,7 @@ internal class CreateServiceOrderCommandHandler : IRequestHandler<CreateServiceO
             TotalAmount = totalAmount,
             BilledToRoom = request.BilledToRoom,
             PaymentMode = request.BilledToRoom ? null : (request.PaymentMode ?? PaymentMode.UPI),
-            Status = ServiceOrderStatus.DELIVERED,
+            Status = ServiceOrderStatus.PENDING,
             Notes = request.Notes
         };
 
@@ -103,7 +103,11 @@ internal class CreateServiceOrderCommandHandler : IRequestHandler<CreateServiceO
                 Name = item.Name,
                 Price = item.Price,
                 Quantity = item.Quantity,
-                Category = MenuCategory.MAIN_COURSE
+                Category = MenuCategory.MAIN_COURSE,
+                OrganizationId = userOrg.OrganizationId.Value,
+                CreatedBy = userOrg.UserId,
+                CreatedDate = DateTime.UtcNow,
+                IsActive = true
             });
         }
 

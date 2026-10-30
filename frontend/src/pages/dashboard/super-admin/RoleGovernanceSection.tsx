@@ -10,6 +10,7 @@ import {
   useDeleteUserMutation,
   type RegisteredUser,
 } from "../../../store/services/user/userSlice";
+import { useGetNotificationsQuery, useMarkNotificationReadMutation } from "../../../store/services/notification/notificationSlice";
 import { getErrorMessage } from "../../../utils/helper/helper";
 
 interface RoleGovernanceSectionProps {
@@ -49,8 +50,11 @@ export default function RoleGovernanceSection({
   const [deleteStaff] = useDeleteStaffMemberMutation();
 
   const { data: registeredUsers = [], isLoading: isLoadingUsers } = useGetRegisteredUsersQuery();
+  const { data: notifications = [] } = useGetNotificationsQuery();
+  const [markRead] = useMarkNotificationReadMutation();
   const [updateUserRole, { isLoading: isUpdatingRole }] = useUpdateUserRoleMutation();
   const [deleteUser] = useDeleteUserMutation();
+  const [hotelChoice, setHotelChoice] = useState<Record<string, string>>({});
 
   const pendingCount = registeredUsers.filter(
     (u) => !u.roles[0] || u.roles[0].name.toLowerCase() === "user"
@@ -78,13 +82,23 @@ export default function RoleGovernanceSection({
     return s.propertyId === filterProp || s.propertyId === "ALL";
   });
 
-  const handleUserRoleChange = async (targetUser: RegisteredUser, newRoleName: string) => {
+  const handleUserRoleChange = async (targetUser: RegisteredUser, newRoleName: string, propertyValue?: string) => {
+    const selectedHotel = propertyValue ?? hotelChoice[targetUser.id] ?? (targetUser.propertyId ? String(targetUser.propertyId) : "");
+    if ((newRoleName === "Admin" || newRoleName === "Reception") && !selectedHotel) {
+      toast.error("Choose a hotel before assigning this role.");
+      return;
+    }
+    if (!targetUser.emailConfirmed) {
+      toast.error("This user has not verified their email yet.");
+      return;
+    }
     try {
       await updateUserRole({
         userId: targetUser.id,
         roles: [newRoleName],
+        propertyId: newRoleName === "SuperAdmin" ? null : selectedHotel ? Number(selectedHotel) : null,
       }).unwrap();
-      toast.success(`Role updated to "${newRoleName}" for ${targetUser.firstName} ${targetUser.lastName}`);
+      toast.success(`Saved ${newRoleName} for ${targetUser.firstName} ${targetUser.lastName}`);
     } catch (err) {
       toast.error(getErrorMessage(err));
     }
@@ -103,14 +117,8 @@ export default function RoleGovernanceSection({
   const handleRoleChange = async (member: StaffMember, newRole: StaffRole) => {
     try {
       await saveStaff({
-        id: member.id,
-        name: member.name,
+        ...member,
         role: newRole,
-        phone: member.phone,
-        shift: member.shift,
-        status: member.status,
-        propertyId: member.propertyId,
-        propertyName: member.propertyName,
       }).unwrap();
       toast.success(`Role updated to ${newRole} for ${member.name}`);
     } catch (err) {
@@ -186,8 +194,23 @@ export default function RoleGovernanceSection({
       </div>
 
       {activeTab === "users" ? (
-        /* REGISTERED SYSTEM USERS TAB */
         <div className="mt-3 space-y-3">
+          {notifications.filter((item) => !item.isRead).length > 0 ? (
+            <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
+              <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">New user notifications</p>
+              {notifications.filter((item) => !item.isRead).map((item) => (
+                <div key={item.id} className="flex items-start justify-between gap-3 text-[11px] text-amber-950 dark:text-amber-100">
+                  <div>
+                    <p className="font-semibold">{item.title}</p>
+                    <p className="mt-0.5">{item.message}</p>
+                  </div>
+                  <button type="button" className="shrink-0 font-semibold text-amber-800 underline" onClick={() => markRead(item.id)}>
+                    Mark read
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
               <input
@@ -316,6 +339,9 @@ export default function RoleGovernanceSection({
                                 <Phone className="size-3" /> {u.phoneNumber}
                               </span>
                             )}
+                            <span className={u.emailConfirmed ? "text-emerald-600" : "text-amber-600"}>
+                              {u.emailConfirmed ? "Email verified" : "Email not verified"}
+                            </span>
                           </div>
                         </td>
 
@@ -340,18 +366,34 @@ export default function RoleGovernanceSection({
                         </td>
 
                         <td className="py-2.5">
-                          <select
-                            disabled={isUpdatingRole}
-                            value={primaryRole}
-                            onChange={(e) => handleUserRoleChange(u, e.target.value)}
-                            className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-brand-700 shadow-xs outline-none transition focus:border-brand-500 dark:border-slate-700 dark:bg-slate-800 dark:text-brand-300"
-                          >
-                            {SYSTEM_ROLES.map((r) => (
-                              <option key={r.id} value={r.id}>
-                                {r.label}
-                              </option>
-                            ))}
-                          </select>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <select
+                              value={hotelChoice[u.id] ?? (u.propertyId ? String(u.propertyId) : "")}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                setHotelChoice((current) => ({ ...current, [u.id]: value }));
+                                if (primaryRole !== "User") handleUserRoleChange(u, primaryRole, value);
+                              }}
+                              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-800"
+                            >
+                              <option value="">Select hotel</option>
+                              {properties.map((property) => (
+                                <option key={property.id} value={property.id}>{property.name}</option>
+                              ))}
+                            </select>
+                            <select
+                              disabled={isUpdatingRole || !u.emailConfirmed}
+                              value={primaryRole}
+                              onChange={(e) => handleUserRoleChange(u, e.target.value)}
+                              className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-brand-700 shadow-xs outline-none transition focus:border-brand-500 dark:border-slate-700 dark:bg-slate-800 dark:text-brand-300"
+                            >
+                              {SYSTEM_ROLES.map((r) => (
+                                <option key={r.id} value={r.id}>
+                                  {r.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         </td>
 
                         <td className="py-2.5 text-center text-[11px] text-slate-500 dark:text-slate-400">

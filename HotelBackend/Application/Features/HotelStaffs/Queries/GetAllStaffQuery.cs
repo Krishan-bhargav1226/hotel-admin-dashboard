@@ -6,7 +6,7 @@ using Domain.Entities.HotelStaffs;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Shared;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 
 namespace Application.Features.HotelStaffs.Queries;
 

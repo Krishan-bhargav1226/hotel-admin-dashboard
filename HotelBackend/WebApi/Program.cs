@@ -1,8 +1,10 @@
 using Application.Extensions;
+using Application.Interfaces.Services;
 using Infrastructure.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using NLog.Web;
@@ -44,6 +46,7 @@ public class Program
 
         builder.Services.ApplicationLayer();
         builder.Services.AddInfrastructure();
+        builder.Services.AddSingleton<ILiveUpdateBroadcaster, SignalRLiveUpdateBroadcaster>();
 
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddEndpointsApiExplorer();
@@ -51,6 +54,12 @@ public class Program
         builder.Services.AddProblemDetails();
         builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
         builder.Services.AddResponseCompression();
+        builder.Services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            options.KnownIPNetworks.Clear();
+            options.KnownProxies.Clear();
+        });
         builder.Services.AddHealthChecks()
             .AddDbContextCheck<ApplicationDbContext>("database", tags: ["ready"]);
         builder.Services.AddAuthorization(options =>
@@ -113,7 +122,12 @@ public class Program
             // Optional: Custom operation IDs
             c.CustomOperationIds(apiDesc =>
             {
-                return apiDesc.TryGetMethodInfo(out MethodInfo methodInfo) ? methodInfo.Name : null;
+                if (!apiDesc.TryGetMethodInfo(out MethodInfo methodInfo))
+                    return null;
+                var controller = apiDesc.ActionDescriptor.RouteValues.TryGetValue("controller", out var name)
+                    ? name
+                    : "Api";
+                return $"{controller}_{methodInfo.Name}";
             });
 
             c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -144,7 +158,20 @@ public class Program
 
         var app = builder.Build();
 
+        if (app.Environment.IsProduction())
+        {
+            var issuer = app.Configuration["JwtSettings:Issuer"] ?? "";
+            var audience = app.Configuration["JwtSettings:Audience"] ?? "";
+            if (issuer.Contains("localhost", StringComparison.OrdinalIgnoreCase) || audience.Contains("localhost", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Set JwtSettings__Issuer and JwtSettings__Audience to the public site before production.");
+
+            var origins = app.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [];
+            if (origins.Length == 0 || origins.All(origin => origin.Contains("localhost", StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException("Set Cors__Origins to the production frontend URL.");
+        }
+
         app.UseExceptionHandler();
+        app.UseForwardedHeaders();
         app.UseResponseCompression();
         app.UseMiddleware<SecurityHeadersMiddleware>();
         app.UseMiddleware<CorrelationIdMiddleware>();
@@ -156,16 +183,19 @@ public class Program
         app.UseRateLimiter();
         app.UseMiddleware<NLogMiddleware>();
         app.UseStaticFiles();
-        app.UseMiddleware<RequestTransactionMiddleware>();
-        app.UseAuthentication();
-        app.UseAuthorization();
 
         if (app.Environment.IsDevelopment())
         {
             app.UseSwagger();
             app.UseSwaggerUI();
-            app.MapOpenApi().AllowAnonymous();
         }
+
+        app.UseAuthentication();
+        app.UseAuthorization();
+        app.UseMiddleware<RequestTransactionMiddleware>();
+
+        if (app.Environment.IsDevelopment())
+            app.MapOpenApi().AllowAnonymous();
 
         app.MapHealthChecks("/health/live", new HealthCheckOptions
         {
@@ -177,6 +207,7 @@ public class Program
         }).AllowAnonymous();
 
         app.MapControllers();
+        app.MapHub<ActivityHub>("/hubs/live");
 
         if (app.Environment.IsDevelopment())
         {

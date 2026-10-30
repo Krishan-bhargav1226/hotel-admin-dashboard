@@ -28,7 +28,6 @@ public class UserLoginController : ControllerBase
         return ResponseHelper.GenerateResponse(data);
     }
 
-    [AllowAnonymous]
     [Route("change-password")]
     [HttpPost]
     public async Task<ActionResult> ChangePassword(ChangePasswordCommand command)
@@ -50,6 +49,14 @@ public class UserLoginController : ControllerBase
     [Route("reset-password")]
     [HttpPost]
     public async Task<ActionResult> ResetPassword(ResetPasswordCommand command)
+    {
+        var data = await _mediator.Send(command);
+        return ResponseHelper.GenerateResponse(data);
+    }
+
+    [AllowAnonymous]
+    [HttpPost("resend-verification")]
+    public async Task<ActionResult> ResendVerification(ResendVerificationCommand command)
     {
         var data = await _mediator.Send(command);
         return ResponseHelper.GenerateResponse(data);

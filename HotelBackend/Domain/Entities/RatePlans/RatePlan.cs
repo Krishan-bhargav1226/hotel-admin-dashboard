@@ -1,5 +1,5 @@
 using Domain.Common;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 using System.ComponentModel.DataAnnotations;
 
 namespace Domain.Entities.RatePlans;

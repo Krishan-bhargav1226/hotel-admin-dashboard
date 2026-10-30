@@ -1,6 +1,6 @@
 using Application.Features.ServiceOrders.Commands;
 using Application.Features.ServiceOrders.Queries;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -39,8 +39,6 @@ public class ServiceOrderController : ControllerBase
     }
 
     [HttpGet]
-    [HttpGet("all")]
-    [HttpGet("getall")]
     public async Task<ActionResult> GetAll([FromQuery] GetAllServiceOrdersQuery query)
     {
         var data = await _mediator.Send(query);

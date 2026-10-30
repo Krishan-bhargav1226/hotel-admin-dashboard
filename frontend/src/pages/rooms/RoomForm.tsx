@@ -1,7 +1,9 @@
+import { useRef, useState } from "react";
 import { Box } from "@mui/material";
 import { Form, Formik } from "formik";
 import * as Yup from "yup";
 import toast from "react-hot-toast";
+import { Upload, Loader2 } from "lucide-react";
 import RightDrawer from "../../components/ui/drawers/RightDrawer";
 import UISubmitButton from "../../components/ui/buttons/UISubmitButton";
 import { TextInput } from "../../components/forms/BasicTextFields";
@@ -9,8 +11,10 @@ import { SearchableSelectDropdown } from "../../components/forms/SelectDropdown"
 import RoomPhoto from "../../components/ui/room/RoomPhoto";
 import { useCreateBulkRoomsMutation, useCreateRoomMutation, useUpdateRoomMutation } from "../../store/services/room/roomSlice";
 import { useGetRoomTypesQuery } from "../../store/services/room-type/roomTypeSlice";
+import { useAuth } from "../../utils/auth/authContextDef";
 import { getErrorMessage } from "../../utils/helper/helper";
 import { getRoomMeta } from "../../utils/helper/roomImages";
+import { uploadImageFile } from "../../utils/helper/imageUpload";
 import type { Room } from "../../utils/interfaces/Interface";
 
 interface Props {
@@ -30,12 +34,41 @@ const bulkSchema = Yup.object({
   roomTypeId: Yup.string().required("Room type is required"),
 });
 
+const hotelIdForNewRoom = () => {
+  try {
+    const active = localStorage.getItem("activePropertyId");
+    return active && active !== "ALL" ? active : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 const RoomForm = ({ open, onClose, room, bulk }: Props) => {
+  const { user } = useAuth();
   const { data: types = [] } = useGetRoomTypesQuery();
+  const propertyId = user?.propertyId && user.propertyId !== "ALL" ? user.propertyId : hotelIdForNewRoom();
   const [createRoom, { isLoading: c1 }] = useCreateRoomMutation();
   const [updateRoom, { isLoading: c2 }] = useUpdateRoomMutation();
   const [createBulk, { isLoading: c3 }] = useCreateBulkRoomsMutation();
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const typeOptions = types.map((t) => ({ id: t.id, name: t.name }));
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, setFieldValue: (field: string, value: any) => void) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const url = await uploadImageFile(file);
+      setFieldValue("image", url);
+      toast.success("Room photo uploaded successfully!");
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setUploadingImage(false);
+      if (event.target) event.target.value = "";
+    }
+  };
 
   return (
     <RightDrawer open={open} onClose={onClose} title={bulk ? "Add multiple rooms" : room ? "Edit room" : "Add room"}>
@@ -45,7 +78,7 @@ const RoomForm = ({ open, onClose, room, bulk }: Props) => {
           validationSchema={bulkSchema}
           onSubmit={async (v) => {
             try {
-              const n = await createBulk({ from: Number(v.from), to: Number(v.to), floor: v.floor, roomTypeId: v.roomTypeId, prefix: v.prefix }).unwrap();
+              const n = await createBulk({ from: Number(v.from), to: Number(v.to), floor: v.floor, roomTypeId: v.roomTypeId, prefix: v.prefix, propertyId }).unwrap();
               toast.success(`${n} rooms added`);
               onClose();
             } catch (e) { toast.error(getErrorMessage(e)); }
@@ -86,14 +119,30 @@ const RoomForm = ({ open, onClose, room, bulk }: Props) => {
           validationSchema={single}
           onSubmit={async (v) => {
             try {
-              if (room) await updateRoom({ id: room.id, data: v }).unwrap();
-              else await createRoom(v).unwrap();
+              if (room) {
+                await updateRoom({
+                  id: room.id,
+                  data: {
+                    ...v,
+                    status: room.status,
+                    basePrice: room.basePrice,
+                    category: room.category,
+                    maxGuests: room.maxGuests,
+                    sizeSqFt: room.sizeSqFt,
+                    suitableFor: room.suitableFor,
+                    bedConfig: room.bedConfig,
+                    amenities: room.amenities,
+                    badge: room.badge,
+                    propertyId: room.propertyId,
+                  },
+                }).unwrap();
+              } else await createRoom({ ...v, propertyId }).unwrap();
               toast.success(room ? "Room updated" : "Room added");
               onClose();
             } catch (e) { toast.error(getErrorMessage(e)); }
           }}
         >
-          {({ values }) => {
+          {({ values, setFieldValue }) => {
             const matchedType = types.find((t) => t.id === values.roomTypeId);
             const meta = getRoomMeta(null, matchedType);
             return (
@@ -117,7 +166,28 @@ const RoomForm = ({ open, onClose, room, bulk }: Props) => {
                 <TextInput name="floor" label="Floor / Block" placeholder="e.g. Floor 2" />
                 <SearchableSelectDropdown name="roomTypeId" label="Room Category / Type" required options={typeOptions} />
                 <TextInput name="bedType" label="Custom Bed Config (Optional)" placeholder={`Default: ${meta.bedConfig}`} />
-                <TextInput name="image" label="Custom Room Photo URL (Optional)" placeholder="Leave blank to use default category photo" />
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-slate-700">Custom Room Photo (Optional)</label>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleFileUpload(e, setFieldValue)}
+                    />
+                    <button
+                      type="button"
+                      disabled={uploadingImage}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-600 hover:text-brand-700 disabled:opacity-50"
+                    >
+                      {uploadingImage ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+                      {uploadingImage ? "Uploading..." : "Upload from Computer"}
+                    </button>
+                  </div>
+                  <TextInput name="image" label="" placeholder="Paste photo URL or click 'Upload from Computer' above" />
+                </div>
                 <TextInput name="notes" label="Notes / Features" multiline rows={2} placeholder="e.g. Corner room with terrace, quiet location" />
                 <Box className="flex justify-end pt-2"><UISubmitButton text={room ? "Update Room" : "Add Room"} loading={c1 || c2} /></Box>
               </Form>

@@ -1,5 +1,5 @@
 using Application.Dto.CommonDtos;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 using Domain.Entities.Rooms;
 
 namespace Application.Dto.Rooms;

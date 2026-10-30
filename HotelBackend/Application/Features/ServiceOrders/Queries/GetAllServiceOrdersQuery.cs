@@ -2,7 +2,7 @@ using Application.Dto.ServiceOrders;
 using Application.Features.Commons;
 using Application.Interfaces.UnitOfWorkRepositories;
 using AutoMapper;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 using Domain.Entities.ServiceOrders;
 using MediatR;
 using Microsoft.EntityFrameworkCore;

@@ -15,6 +15,7 @@ export interface LoginResponse {
   role?: string;
   firstName?: string;
   lastName?: string;
+  propertyId?: number | null;
 }
 
 export interface VerifyOtpRequest {
@@ -54,9 +55,16 @@ export const authApi = hotelApi.injectEndpoints({
         body,
       }),
     }),
+    resendVerification: builder.mutation<unknown, { userName: string }>({
+      query: (body) => ({
+        url: "/user/resend-verification",
+        method: "POST",
+        body,
+      }),
+    }),
   }),
   overrideExisting: true,
 });
 
-export const { useLoginUserMutation, useRegisterUserMutation, useVerifyOtpMutation } = authApi;
+export const { useLoginUserMutation, useRegisterUserMutation, useVerifyOtpMutation, useResendVerificationMutation } = authApi;
 

@@ -1,9 +1,11 @@
 using Application.Common.Helpers;
+using Application.Dto.Stays;
 using Application.Features.Commons;
 using Application.Interfaces.Repositories.UserIdAndOrganizationIds;
 using Application.Interfaces.UnitOfWorkRepositories;
+using AutoMapper;
 using Domain.Entities.Guests;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 using Domain.Entities.RatePlans;
 using Domain.Entities.Reservations;
 using Domain.Entities.Rooms;
@@ -36,7 +38,7 @@ public class CheckInCompanion
     public string? IdImage { get; set; }
 }
 
-public class CheckInCommand : IRequest<Result<int>>
+public class CheckInCommand : IRequest<Result<GetStayDto>>
 {
     public CheckInGuest Guest { get; set; } = new();
     public List<CheckInCompanion> Companions { get; set; } = new();
@@ -52,32 +54,34 @@ public class CheckInCommand : IRequest<Result<int>>
     public int? ReservationId { get; set; }
 }
 
-internal class CheckInCommandHandler : IRequestHandler<CheckInCommand, Result<int>>
+internal class CheckInCommandHandler : IRequestHandler<CheckInCommand, Result<GetStayDto>>
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly ValidationManager _validationManager;
     private readonly IUserIdAndOrganizationIdRepository _userOrganizationRepository;
+    private readonly IMapper _mapper;
 
-    public CheckInCommandHandler(IUnitOfWork unitOfWork, ValidationManager validationManager, IUserIdAndOrganizationIdRepository userOrganizationRepository)
+    public CheckInCommandHandler(IUnitOfWork unitOfWork, ValidationManager validationManager, IUserIdAndOrganizationIdRepository userOrganizationRepository, IMapper mapper)
     {
         _unitOfWork = unitOfWork;
         _validationManager = validationManager;
         _userOrganizationRepository = userOrganizationRepository;
+        _mapper = mapper;
     }
 
-    public async Task<Result<int>> Handle(CheckInCommand request, CancellationToken cancellationToken)
+    public async Task<Result<GetStayDto>> Handle(CheckInCommand request, CancellationToken cancellationToken)
     {
         var userOrg = await _userOrganizationRepository.Get();
         if (userOrg.OrganizationId == null)
-            return Result<int>.BadRequest("Organization not found.");
+            return Result<GetStayDto>.BadRequest("Organization not found.");
 
         var phone = PhoneNormalizer.Normalize(request.Guest.Phone);
         if (!ValidationManager.IsValidPhoneNumber(phone))
-            return Result<int>.BadRequest("Phone number must be 10 digits.");
+            return Result<GetStayDto>.BadRequest("Phone number must be 10 digits.");
 
         var roomIds = request.RoomIds.Where(x => x > 0).Distinct().ToList();
         if (roomIds.Count == 0)
-            return Result<int>.BadRequest("Select at least one room.");
+            return Result<GetStayDto>.BadRequest("Select at least one room.");
 
         if ((int)request.PartyType == 0)
             request.PartyType = PartyType.SOLO;
@@ -93,31 +97,31 @@ internal class CheckInCommandHandler : IRequestHandler<CheckInCommand, Result<in
             .Where(x => roomIds.Contains(x.Id))
             .ToListAsync(cancellationToken);
         if (rooms.Count != roomIds.Count)
-            return Result<int>.BadRequest("Room does not exist.");
+            return Result<GetStayDto>.BadRequest("Room does not exist.");
 
         var unavailable = rooms.FirstOrDefault(x => x.Status != RoomStatus.AVAILABLE);
         if (unavailable != null)
-            return Result<int>.BadRequest($"Room {unavailable.Number} is not currently available.");
+            return Result<GetStayDto>.BadRequest($"Room {unavailable.Number} is not currently available.");
 
         var plan = await _unitOfWork.Repository<RatePlan>().GetByID(request.RatePlanId);
         if (plan == null || !plan.IsActive)
-            return Result<int>.BadRequest("Rate plan does not exist.");
+            return Result<GetStayDto>.BadRequest("Rate plan does not exist.");
 
         var allowedTypes = await _unitOfWork.Repository<RatePlanRoom>().Entities
             .Where(x => x.RatePlanId == plan.Id)
             .Select(x => x.RoomTypeId)
             .ToListAsync(cancellationToken);
         if (allowedTypes.Count > 0 && rooms.Any(x => !allowedTypes.Contains(x.RoomTypeId)))
-            return Result<int>.BadRequest("Rate plan does not apply to the selected room type.");
+            return Result<GetStayDto>.BadRequest("Rate plan does not apply to the selected room type.");
 
         Reservation? reservation = null;
         if (request.ReservationId != null)
         {
             reservation = await _unitOfWork.Repository<Reservation>().GetByID(request.ReservationId.Value);
             if (reservation == null)
-                return Result<int>.BadRequest("Reservation does not exist.");
+                return Result<GetStayDto>.BadRequest("Reservation does not exist.");
             if (reservation.Status != ReservationStatus.CONFIRMED)
-                return Result<int>.BadRequest("Only a confirmed reservation can be checked in.");
+                return Result<GetStayDto>.BadRequest("Only a confirmed reservation can be checked in.");
         }
 
         var checkInAt = request.CheckInAt ?? DateTime.UtcNow;
@@ -131,7 +135,7 @@ internal class CheckInCommandHandler : IRequestHandler<CheckInCommand, Result<in
                 && x.CheckOutDate > today
                 && x.Id != request.ReservationId, cancellationToken);
             if (reserved)
-                return Result<int>.BadRequest($"Room {room.Number} is reserved for another booking.");
+                return Result<GetStayDto>.BadRequest($"Room {room.Number} is reserved for another booking.");
         }
 
         var guest = await _unitOfWork.Repository<Guest>().Entities
@@ -230,6 +234,11 @@ internal class CheckInCommandHandler : IRequestHandler<CheckInCommand, Result<in
             await _unitOfWork.Repository<Reservation>().UpdateAsync(reservation);
             await _unitOfWork.Save(cancellationToken);
         }
-        return Result<int>.Success(stay.Id, "Guest checked in successfully.");
+        var saved = await _unitOfWork.Repository<Stay>().Entities
+            .Include(x => x.Companions)
+            .Include(x => x.Charges)
+            .Include(x => x.StayRooms)
+            .FirstAsync(x => x.Id == stay.Id, cancellationToken);
+        return Result<GetStayDto>.Success(_mapper.Map<GetStayDto>(saved), "Guest checked in successfully.");
     }
 }

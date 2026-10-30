@@ -3,7 +3,7 @@ using Application.Features.Commons;
 using Application.Interfaces.Repositories.UserIdAndOrganizationIds;
 using Application.Interfaces.UnitOfWorkRepositories;
 using AutoMapper;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 using Domain.Entities.Maintenances;
 using Domain.Entities.Rooms;
 using MediatR;
@@ -64,8 +64,11 @@ internal class CreateMaintenanceTicketCommandHandler : IRequestHandler<CreateMai
         entity.TicketNo = ticketNo;
         entity.RoomNumber = room.Number;
 
-        room.Status = RoomStatus.MAINTENANCE;
-        await _unitOfWork.Repository<Room>().UpdateAsync(room);
+        if (request.Priority is MaintenancePriority.HIGH or MaintenancePriority.EMERGENCY)
+        {
+            room.Status = RoomStatus.MAINTENANCE;
+            await _unitOfWork.Repository<Room>().UpdateAsync(room);
+        }
 
         await _unitOfWork.Repository<MaintenanceTicket>().AddAsync(entity);
         await _unitOfWork.Save(cancellationToken);

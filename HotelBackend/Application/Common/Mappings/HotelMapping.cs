@@ -3,7 +3,7 @@ using Application.Dto.Rooms;
 using Application.Dto.ServiceOrders;
 using Application.Dto.Stays;
 using AutoMapper;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 using Domain.Entities.RatePlans;
 using Domain.Entities.Rooms;
 using Domain.Entities.ServiceOrders;

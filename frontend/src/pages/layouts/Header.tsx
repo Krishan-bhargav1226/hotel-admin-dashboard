@@ -23,6 +23,7 @@ import { buildPath, getErrorMessage } from "../../utils/helper/helper";
 import { AppEndPoints } from "../../utils/rout-endpoints/AppEndPoints";
 import { useDeskRole } from "../../utils/access/deskRole";
 import { useThemeMode } from "../../utils/theme/themeContext";
+import { joinPropertyGroup } from "../../services/liveUpdates";
 
 interface HeaderProps { onMenuClick?: () => void; }
 interface Notice { id: string; title: string; detail: string; href: string; }
@@ -83,6 +84,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                   if (!targetId) return;
                   try {
                     const target = await switchProperty(targetId).unwrap();
+                    joinPropertyGroup(Number(targetId));
                     toast.success(`Switched active property to: ${target.name}`);
                   } catch (error) {
                     toast.error(getErrorMessage(error));

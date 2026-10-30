@@ -43,25 +43,26 @@ const housekeepingApi = hotelApi.injectEndpoints({
     }),
 
     updateHousekeepingStatus: builder.mutation<
-      HousekeepingTask,
+      void,
       {
         roomId: string;
         status: HousekeepingStatus;
         assignedTo?: string;
         notes?: string;
+        priority?: HousekeepingTask["priority"];
       }
     >({
-      query: ({ roomId, status, assignedTo, notes }) => ({
-        url: `/housekeeping/room/${roomId}`,
-        method: "PUT",
-        body: {
-          roomId: Number(roomId),
-          status,
-          assignedTo: assignedTo || null,
-          notes: notes || null,
-        },
-      }),
-      transformResponse: (res: any) => mapBackendHousekeeping(res?.data ?? res),
+      query: ({ roomId, status, assignedTo, notes, priority }) => {
+        const body: Record<string, unknown> = { status };
+        if (priority) body.priority = priority;
+        if (assignedTo !== undefined) body.assignedTo = assignedTo;
+        if (notes !== undefined) body.notes = notes;
+        return {
+          url: `/housekeeping/room/${roomId}`,
+          method: "PUT",
+          body,
+        };
+      },
       invalidatesTags: ["Housekeeping", "Room"],
     }),
 
@@ -106,9 +107,10 @@ const housekeepingApi = hotelApi.injectEndpoints({
         },
       }),
       transformResponse: (res: any, _meta: any, arg: CreateMaintenancePayload): MaintenanceTicket => {
-        const item = res?.data ?? res;
+        const createdId = typeof res === "number" ? res : res?.id;
+        const item = res && typeof res === "object" ? res : undefined;
         return {
-          id: String(item?.id ?? Date.now()),
+          id: String(createdId ?? Date.now()),
           ticketNo: item?.ticketNo ?? `MT-${Date.now().toString().slice(-4)}`,
           roomId: arg.roomId,
           roomNumber: item?.roomNumber ?? arg.roomId,

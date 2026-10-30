@@ -2,9 +2,10 @@
 
 public class GetUserIdAndOrganizationIdDto
 {
-    public bool IsAdmin { get; set; } = false;
-    public bool IsSchool { get; set; } = false;
-    public string UserId { get; set; }
+    public bool IsAdmin { get; set; }
+    public bool IsSuperAdmin { get; set; }
+    public string? UserId { get; set; }
     public int? OrganizationId { get; set; }
     public int? UserOrganizationId { get; set; }
+    public int? PropertyId { get; set; }
 }

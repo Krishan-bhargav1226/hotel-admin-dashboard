@@ -38,13 +38,6 @@ internal class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, Resul
         var user = await _userManager.Users
             .Include(x => x.UserRoles)
                 .ThenInclude(x => x.Role)
-            .Include(x => x.UserProfile)
-            .Include(x => x.UserAddress)
-                .ThenInclude(x => x.City)
-            .Include(x => x.UserAddress)
-                .ThenInclude(x => x.State)
-            .Include(x => x.UserAddress)
-                .ThenInclude(x => x.Country)
             .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
 
         if (user == null)

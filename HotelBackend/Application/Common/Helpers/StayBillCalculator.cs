@@ -1,4 +1,4 @@
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 
 namespace Application.Common.Helpers;
 

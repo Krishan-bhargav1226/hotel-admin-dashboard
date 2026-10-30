@@ -11,6 +11,9 @@ public class ChatRequestDto
     public string Message { get; set; } = string.Empty;
     public List<ChatMessageDto> History { get; set; } = [];
     public string? PageContext { get; set; }
+    public int? PropertyId { get; set; }
+    public string? PropertyName { get; set; }
+    public string? PageTitle { get; set; }
 }
 
 public class ChatResponseDto

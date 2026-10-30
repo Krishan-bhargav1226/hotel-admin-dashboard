@@ -18,9 +18,6 @@ public class ReportController : ControllerBase
     /// <summary>
     /// Dashboard & Reports KPI, 7-day revenue trend, room performance, and category breakdown.
     /// </summary>
-    [HttpGet]
-    [HttpGet("all")]
-    [HttpGet("getall")]
     [HttpGet("summary")]
     public async Task<ActionResult> Summary([FromQuery] DateTime? from, [FromQuery] DateTime? to)
     {

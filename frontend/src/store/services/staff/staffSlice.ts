@@ -12,18 +12,60 @@ export interface CreateShiftRegisterPayload {
   handoverNotes: string;
 }
 
+const STAFF_ROLES = ["", "SUPER_ADMIN", "ADMIN", "MANAGER", "RECEPTIONIST", "HOUSEKEEPING", "CHEF", "MAINTENANCE"];
+const SHIFT_TYPES = ["", "MORNING", "EVENING", "NIGHT", "FULL_DAY"];
+const DUTY_STATUSES = ["", "ON_DUTY", "OFF_DUTY"];
+
+const asEnum = (value: unknown, names: string[], fallback: string) => {
+  if (typeof value === "string" && names.includes(value)) return value;
+  const index = Number(value);
+  return Number.isInteger(index) ? names[index] || fallback : fallback;
+};
+
+const staffPhone = (phone: string) => {
+  const trimmed = phone.trim();
+  if (trimmed.length <= 20) return trimmed;
+  const digits = trimmed.replace(/\D/g, "");
+  return (digits.length > 10 ? digits.slice(-10) : digits).slice(0, 20);
+};
+
+const dateOnly = (value: unknown) => {
+  const text = String(value ?? "").trim();
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(text);
+  return match?.[1] || new Date().toISOString().slice(0, 10);
+};
+
+const finite = (value: unknown, fallback = 0) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+};
+
 const mapBackendStaff = (item: any): StaffMember => ({
   id: String(item.id),
   name: item.name,
-  role: item.role,
+  role: asEnum(item.role, STAFF_ROLES, "RECEPTIONIST") as StaffMember["role"],
   phone: item.phone,
   email: item.email ?? undefined,
-  shift: item.shift || "FULL_DAY",
-  status: item.dutyStatus || "ON_DUTY",
-  joinedDate: item.joinedDate || (item.createdDate ? item.createdDate.slice(0, 10) : "2024-01-01"),
+  shift: asEnum(item.shift, SHIFT_TYPES, "FULL_DAY") as StaffMember["shift"],
+  status: asEnum(item.dutyStatus, DUTY_STATUSES, "OFF_DUTY") as StaffMember["status"],
+  joinedDate: dateOnly(item.joinedDate || item.createdDate),
   propertyId: item.propertyId ? String(item.propertyId) : undefined,
   propertyName: item.propertyName ?? undefined,
 });
+
+const staffBody = (payload: Partial<StaffMember> & { name: string; role: StaffMember["role"]; phone: string }) => {
+  const propertyId = Number(payload.propertyId);
+  return {
+    name: payload.name.trim().slice(0, 150),
+    role: payload.role,
+    phone: staffPhone(payload.phone),
+    email: payload.email?.trim() ? payload.email.trim().slice(0, 150) : null,
+    shift: payload.shift || "FULL_DAY",
+    dutyStatus: payload.status || "ON_DUTY",
+    joinedDate: dateOnly(payload.joinedDate),
+    propertyId: Number.isInteger(propertyId) && propertyId > 0 ? propertyId : null,
+  };
+};
 
 const staffApi = hotelApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -40,39 +82,11 @@ const staffApi = hotelApi.injectEndpoints({
       StaffMember,
       Partial<StaffMember> & { name: string; role: StaffMember["role"]; phone: string }
     >({
-      query: (payload) => {
-        if (payload.id) {
-          return {
-            url: `/staff/${payload.id}`,
-            method: "PUT",
-            body: {
-              name: payload.name.trim(),
-              role: payload.role,
-              phone: payload.phone.trim(),
-              email: payload.email || null,
-              shift: payload.shift || "FULL_DAY",
-              dutyStatus: payload.status || "ON_DUTY",
-              joinedDate: payload.joinedDate || new Date().toISOString().slice(0, 10),
-              propertyId: payload.propertyId ? Number(payload.propertyId) : null,
-            },
-          };
-        } else {
-          return {
-            url: "/staff",
-            method: "POST",
-            body: {
-              name: payload.name.trim(),
-              role: payload.role,
-              phone: payload.phone.trim(),
-              email: payload.email || null,
-              shift: payload.shift || "FULL_DAY",
-              dutyStatus: payload.status || "ON_DUTY",
-              joinedDate: payload.joinedDate || new Date().toISOString().slice(0, 10),
-              propertyId: payload.propertyId ? Number(payload.propertyId) : null,
-            },
-          };
-        }
-      },
+      query: (payload) => ({
+        url: payload.id ? `/staff/${payload.id}` : "/staff",
+        method: payload.id ? "PUT" : "POST",
+        body: staffBody(payload),
+      }),
       transformResponse: (res: any) => mapBackendStaff(res?.data ?? res),
       invalidatesTags: ["Staff"],
     }),
@@ -100,16 +114,16 @@ const staffApi = hotelApi.injectEndpoints({
       transformResponse: (response: any): ShiftRegister[] => {
         const rawList = Array.isArray(response) ? response : (response?.data ?? []);
         return rawList.map((item: any) => {
-          const opening = Number(item.openingCash) || 5000;
-          const collected = Number(item.cashCollected) || 0;
-          const expenses = Number(item.pettyExpensesPaid) || 0;
-          const closingExpected = Number(item.closingCashExpected ?? (opening + collected - expenses));
-          const counted = Number(item.actualCashCounted) || closingExpected;
-          const difference = Number(item.cashDifference ?? (counted - closingExpected));
+          const opening = finite(item.openingCash);
+          const collected = finite(item.cashCollected);
+          const expenses = finite(item.pettyExpensesPaid);
+          const closingExpected = item.closingCashExpected == null ? opening + collected - expenses : finite(item.closingCashExpected);
+          const counted = item.actualCashCounted == null ? closingExpected : finite(item.actualCashCounted);
+          const difference = item.cashDifference == null ? counted - closingExpected : finite(item.cashDifference);
           return {
             id: String(item.id),
-            shiftDate: item.shiftDate || new Date().toISOString().slice(0, 10),
-            shiftType: item.shiftType || "MORNING",
+            shiftDate: dateOnly(item.shiftDate),
+            shiftType: asEnum(item.shiftType, SHIFT_TYPES, "MORNING") as ShiftRegister["shiftType"],
             staffName: item.staffName || "Staff Member",
             openingCash: opening,
             cashCollected: collected,
@@ -129,13 +143,23 @@ const staffApi = hotelApi.injectEndpoints({
       query: (payload) => ({
         url: "/shift",
         method: "POST",
-        body: payload,
+        body: {
+          shiftDate: dateOnly(payload.shiftDate),
+          shiftType: payload.shiftType,
+          staffName: payload.staffName.trim().slice(0, 150),
+          openingCash: finite(payload.openingCash),
+          cashCollected: finite(payload.cashCollected),
+          pettyExpensesPaid: finite(payload.pettyExpensesPaid),
+          actualCashCounted: finite(payload.actualCashCounted),
+          handoverNotes: payload.handoverNotes?.trim().slice(0, 1000) || null,
+        },
       }),
-      transformResponse: (_res: any, _meta: any, arg: CreateShiftRegisterPayload): ShiftRegister => {
+      transformResponse: (res: any, _meta: any, arg: CreateShiftRegisterPayload): ShiftRegister => {
         const closing = arg.openingCash + arg.cashCollected - arg.pettyExpensesPaid;
         const diff = arg.actualCashCounted - closing;
+        const id = typeof res === "number" || typeof res === "string" ? res : res?.id;
         return {
-          id: `sr-${Date.now()}`,
+          id: String(id ?? Date.now()),
           shiftDate: arg.shiftDate,
           shiftType: arg.shiftType,
           staffName: arg.staffName,

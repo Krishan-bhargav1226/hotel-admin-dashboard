@@ -133,8 +133,8 @@ const reservationApi = hotelApi.injectEndpoints({
         method: "POST",
         body: {
           guest: {
-            name: p.guestName?.trim() || "Guest",
-            phone: p.guestPhone?.trim() || "9800000000",
+            name: p.guestName?.trim() || "",
+            phone: p.guestPhone?.trim() || "",
             idType: p.idType || "AADHAAR",
             idNumber: p.idNumber,
             address: p.address || "",
@@ -151,9 +151,11 @@ const reservationApi = hotelApi.injectEndpoints({
           reservationId: Number(p.reservationId),
         },
       }),
-      transformResponse: (_res: any, _meta: any, arg: ConvertReservationToStayPayload) => ({
-        roomNumber: String(arg.roomId),
-      }),
+      transformResponse: (res: any, _meta: any, arg: ConvertReservationToStayPayload) => {
+        const stay = res?.data ?? res;
+        const roomNumber = stay && typeof stay === "object" ? stay.roomNumber : undefined;
+        return { roomNumber: roomNumber ? String(roomNumber) : String(arg.roomId) };
+      },
       invalidatesTags: ["Reservation", "Stay", "Room", "Report"],
     }),
   }),

@@ -1,4 +1,4 @@
-﻿using Application.Common.Exceptions;
+using Application.Common.Exceptions;
 using Application.Interfaces.Repositories.Documents;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -25,7 +25,10 @@ public class CreateDocumentPath : ICreateDocumentPath
         var fileExtension = Path.GetExtension(file.FileName).ToLower();
 
         var filename = $"{Guid.NewGuid()}{fileExtension}";
-        var filePath = Path.Combine(_webHostEnvironment.WebRootPath, "Documents", filename);
+        var rootPath = !string.IsNullOrWhiteSpace(_webHostEnvironment.WebRootPath)
+            ? _webHostEnvironment.WebRootPath
+            : Path.Combine(_webHostEnvironment.ContentRootPath, "wwwroot");
+        var filePath = Path.Combine(rootPath, "Documents", filename);
 
         var directoryPath = Path.GetDirectoryName(filePath);
 
@@ -52,7 +55,10 @@ public class CreateDocumentPath : ICreateDocumentPath
 
                 string relativePath = uri.AbsolutePath.TrimStart('/');
 
-                string filePath = Path.Combine(_webHostEnvironment.WebRootPath, relativePath);
+                var rootPath = !string.IsNullOrWhiteSpace(_webHostEnvironment.WebRootPath)
+                    ? _webHostEnvironment.WebRootPath
+                    : Path.Combine(_webHostEnvironment.ContentRootPath, "wwwroot");
+                string filePath = Path.Combine(rootPath, relativePath);
 
                 if (File.Exists(filePath))
                 {

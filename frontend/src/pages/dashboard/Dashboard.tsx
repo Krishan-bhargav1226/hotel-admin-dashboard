@@ -118,7 +118,7 @@ export default function Dashboard() {
                   Welcome, {user?.name || "Guest"}!
                 </h1>
                 <p className="text-sm text-surface-600 dark:text-surface-400">
-                  Your account is registered and authenticated on {settings?.hotelName || "Grand Horizon Hotel"}.
+                  Your account is registered and authenticated on {settings?.hotelName || "this hotel"}.
                 </p>
               </div>
 
@@ -244,7 +244,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <PageTitle title={settings?.hotelName || "Grand Horizon Hotel"} subtitle={<span className="flex flex-wrap items-center gap-x-2 gap-y-1"><span className="inline-flex items-center gap-2 font-semibold text-emerald-700 dark:text-emerald-300"><span className="size-2 rounded-full bg-emerald-500" aria-hidden="true" />Front desk is live</span><span aria-hidden="true">·</span><span>{dayjs(now).format("dddd, DD/MM/YYYY")}</span></span>} actions={
+      <PageTitle title={settings?.hotelName || "Front desk"} subtitle={<span className="flex flex-wrap items-center gap-x-2 gap-y-1"><span className="inline-flex items-center gap-2 font-semibold text-emerald-700 dark:text-emerald-300"><span className="size-2 rounded-full bg-emerald-500" aria-hidden="true" />Front desk is live</span><span aria-hidden="true">·</span><span>{dayjs(now).format("dddd, DD/MM/YYYY")}</span></span>} actions={
         <>
           <Button variant="outline" size="sm" icon={CalendarDays} onClick={() => navigate(AppEndPoints.RESERVATIONS)}>Reservations</Button>
           <Button variant="outline" size="sm" icon={ConciergeBell} onClick={() => navigate(AppEndPoints.POS_SERVICES)}>Room service</Button>

@@ -20,7 +20,7 @@ export function ChainPropertyCard({
 }: ChainPropertyCardProps) {
   const isSelected = property.active;
   const occ = property.occupancyRate || 0;
-  const rev = property.dailyRevenue || Math.round(property.roomCount * (occ / 100) * (property.adr || 5500));
+  const rev = property.dailyRevenue || 0;
 
   return (
     <div
@@ -34,7 +34,7 @@ export function ChainPropertyCard({
         {/* Top Header Badge */}
         <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
           <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-            {property.brandTier || "Luxury Collection"}
+            {property.brandTier || "—"}
           </span>
           {isSelected ? (
             <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">

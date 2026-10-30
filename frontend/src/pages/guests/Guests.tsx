@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Box, TextField } from "@mui/material";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -32,19 +32,25 @@ const excelColumns = [{ label: "Sr No" }, { label: "Name" }, { label: "Phone" },
 const Guests = () => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { data: guests = [], isLoading } = useGetGuestsQuery();
+  const queryFromUrl = params.get("q") ?? "";
+  const [search, setSearch] = useState(queryFromUrl);
+  const [debouncedSearch, setDebouncedSearch] = useState(queryFromUrl);
+  useEffect(() => {
+    setSearch(queryFromUrl);
+  }, [queryFromUrl]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search), 250);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+  const { data: guests = [], isLoading, isFetching } = useGetGuestsQuery(
+    debouncedSearch.trim() ? { search: debouncedSearch.trim() } : undefined,
+  );
   const [deleteGuest] = useDeleteGuestMutation();
-  const [search, setSearch] = useState(params.get("q") ?? "");
   const [drawer, setDrawer] = useState<{ open: boolean; guest: Guest | null }>({ open: false, guest: null });
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return guests;
-    return guests.filter((g) => [g.name, g.phone, g.idNumber].some((x) => x.toLowerCase().includes(q)));
-  }, [guests, search]);
-  const pg = useClientPagination(filtered);
+  const pg = useClientPagination(guests);
 
-  const rows = filtered.map((g, i) => ({
+  const rows = guests.map((g, i) => ({
     srNo: i + 1, name: g.name, phone: g.phone, idType: idTypeName(g.idType), address: g.address,
     visits: g.visits, lastVisit: formatFullDate(g.lastVisitAt), totalSpent: g.totalSpent,
     idNumber: maskId(g.idNumber),
@@ -60,7 +66,7 @@ const Guests = () => {
     <MainContainer>
       <PageTitle
         title="Guests"
-        subtitle={`${filtered.length} guests`}
+        subtitle={`${guests.length} guests`}
         actions={
           <>
             <UISubmitButton type="button" variant="outlined" text="Print" onClick={() => printDocument(rows, excelColumns, "Guests")} />
@@ -77,7 +83,7 @@ const Guests = () => {
       </Box>
 
       <RenderTable columns={columns}>
-        {isLoading ? (
+        {isLoading || (isFetching && pg.pageItems.length === 0) ? (
           <TableRow itemIndex={1}><td colSpan={columns.length}><LoadingTable /></td></TableRow>
         ) : pg.pageItems.length === 0 ? (
           <TableRow itemIndex={1}><td className="p-4 text-center text-gray-500" colSpan={columns.length}>No Data Found</td></TableRow>

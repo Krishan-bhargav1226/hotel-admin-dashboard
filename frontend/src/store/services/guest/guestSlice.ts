@@ -27,17 +27,56 @@ const mapBackendGuest = (item: any): GuestWithStats => ({
   address: item.address || "",
   isFlagged: Boolean(item.isFlagged),
   flagReason: item.flagReason || "",
-  visits: Number(item.visits) || 1,
-  totalSpent: Number(item.totalSpent) || 4500,
-  lastVisitAt: item.lastVisitAt || item.createdDate || null,
+  visits: Number(item.visits) || 0,
+  totalSpent: Number(item.totalSpent) || 0,
+  lastVisitAt: item.lastVisitAt || null,
   createdAt: item.createdDate || new Date().toISOString(),
   updatedAt: item.updatedDate || item.createdDate || new Date().toISOString(),
 });
 
+const clip = (value: string, max: number) => {
+  const text = value.trim();
+  return text.length > max ? text.slice(0, max) : text;
+};
+
+const dataUrlToFile = (dataUrl: string): File | null => {
+  const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+  if (!match) return null;
+  const mime = match[1] || "image/jpeg";
+  const binary = atob(match[2]);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  const extension = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
+  return new File([bytes], `id-proof.${extension}`, { type: mime });
+};
+
+const guestFormData = (payload: GuestPayload) => {
+  const formData = new FormData();
+  formData.append("Name", clip(payload.name, 150));
+  formData.append("Phone", clip(payload.phone, 20));
+  formData.append("IdType", clip(payload.idType || "Aadhaar", 50));
+  formData.append("IdNumber", clip(payload.idNumber || "", 50));
+  formData.append("Address", clip(payload.address || "", 300));
+  formData.append("IsFlagged", payload.isFlagged ? "true" : "false");
+  formData.append("FlagReason", clip(payload.flagReason || "", 300));
+  const image = payload.idImage?.trim() ?? "";
+  if (image.startsWith("data:")) {
+    const file = dataUrlToFile(image);
+    if (file) formData.append("IdImageFile", file);
+    else formData.append("IdImage", image);
+  } else if (image) {
+    formData.append("IdImage", image);
+  }
+  return formData;
+};
+
 const guestApi = hotelApi.injectEndpoints({
   endpoints: (builder) => ({
-    getGuests: builder.query<GuestWithStats[], void>({
-      query: () => "/guest",
+    getGuests: builder.query<GuestWithStats[], { search?: string } | void>({
+      query: (params) => {
+        const search = params && typeof params === "object" ? params.search?.trim() : "";
+        return search ? `/guest?search=${encodeURIComponent(search)}` : "/guest";
+      },
       transformResponse: (response: any) => {
         const rawList = Array.isArray(response) ? response : (response?.data ?? []);
         return rawList.map(mapBackendGuest);
@@ -142,43 +181,21 @@ const guestApi = hotelApi.injectEndpoints({
     }),
 
     createGuest: builder.mutation<Guest, GuestPayload>({
-      query: (payload) => {
-        const formData = new FormData();
-        formData.append("Name", payload.name.trim());
-        formData.append("Phone", payload.phone.trim());
-        formData.append("IdType", payload.idType || "Aadhaar");
-        formData.append("IdNumber", payload.idNumber || "");
-        formData.append("Address", payload.address || "");
-        formData.append("IsFlagged", String(payload.isFlagged));
-        formData.append("FlagReason", payload.flagReason || "");
-        if (payload.idImage) formData.append("IdImage", payload.idImage);
-        return {
-          url: "/guest",
-          method: "POST",
-          body: formData,
-        };
-      },
+      query: (payload) => ({
+        url: "/guest",
+        method: "POST",
+        body: guestFormData(payload),
+      }),
       transformResponse: (res: any) => mapBackendGuest(res?.data ?? res),
       invalidatesTags: ["Guest"],
     }),
 
     updateGuest: builder.mutation<Guest, { id: string; data: GuestPayload }>({
-      query: ({ id, data }) => {
-        const formData = new FormData();
-        formData.append("Name", data.name.trim());
-        formData.append("Phone", data.phone.trim());
-        formData.append("IdType", data.idType || "Aadhaar");
-        formData.append("IdNumber", data.idNumber || "");
-        formData.append("Address", data.address || "");
-        formData.append("IsFlagged", String(data.isFlagged));
-        formData.append("FlagReason", data.flagReason || "");
-        if (data.idImage) formData.append("IdImage", data.idImage);
-        return {
-          url: `/guest/${id}`,
-          method: "PUT",
-          body: formData,
-        };
-      },
+      query: ({ id, data }) => ({
+        url: `/guest/${id}`,
+        method: "PUT",
+        body: guestFormData(data),
+      }),
       transformResponse: (res: any) => mapBackendGuest(res?.data ?? res),
       invalidatesTags: ["Guest"],
     }),

@@ -2,6 +2,7 @@ using Application.Interfaces.Repositories.UserIdAndOrganizationIds;
 using Application.Interfaces.UnitOfWorkRepositories;
 using Domain.Entities.NightAudits;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Shared;
 
 namespace Application.Features.NightAudits.Commands;
@@ -60,11 +61,46 @@ internal class ExecuteNightAuditCommandHandler : IRequestHandler<ExecuteNightAud
             orgId = 1;
         }
 
+        var settlements = request.Settlements ?? new NightAuditSettlementDto();
+        var auditedBy = string.IsNullOrWhiteSpace(request.AuditedBy) ? "audit-bot" : request.AuditedBy.Trim();
+        if (auditedBy.Length > 150)
+            auditedBy = auditedBy[..150];
+        var notes = request.Notes?.Trim();
+        if (notes != null && notes.Length > 1000)
+            notes = notes[..1000];
+
+        var existing = await _unitOfWork.Repository<NightAudit>().Entities
+            .FirstOrDefaultAsync(x => x.OrganizationId == orgId && x.BusinessDate == date, cancellationToken);
+
+        if (existing != null)
+        {
+            existing.AuditTimestamp = DateTime.UtcNow;
+            existing.AuditedBy = auditedBy;
+            existing.TotalRooms = request.TotalRooms;
+            existing.OccupiedRooms = request.OccupiedRooms;
+            existing.OccupancyRate = request.OccupancyRate;
+            existing.RoomRevenue = request.RoomRevenue;
+            existing.PosRevenue = request.PosRevenue;
+            existing.ServicesRevenue = request.ServicesRevenue;
+            existing.TotalRevenue = request.TotalRevenue;
+            existing.Adr = request.Adr;
+            existing.RevPar = request.RevPar;
+            existing.TotalGst = request.TotalGst;
+            existing.CashSettlement = settlements.Cash;
+            existing.UpiSettlement = settlements.Upi;
+            existing.CardSettlement = settlements.Card;
+            existing.CorporateSettlement = settlements.Corporate;
+            existing.Notes = notes;
+            await _unitOfWork.Repository<NightAudit>().UpdateAsync(existing);
+            await _unitOfWork.Save(cancellationToken);
+            return Result<int>.Success(existing.Id, "Night audit executed and closed successfully");
+        }
+
         var audit = new NightAudit
         {
             BusinessDate = date,
             AuditTimestamp = DateTime.UtcNow,
-            AuditedBy = string.IsNullOrWhiteSpace(request.AuditedBy) ? "audit-bot" : request.AuditedBy,
+            AuditedBy = auditedBy,
             TotalRooms = request.TotalRooms,
             OccupiedRooms = request.OccupiedRooms,
             OccupancyRate = request.OccupancyRate,
@@ -75,11 +111,11 @@ internal class ExecuteNightAuditCommandHandler : IRequestHandler<ExecuteNightAud
             Adr = request.Adr,
             RevPar = request.RevPar,
             TotalGst = request.TotalGst,
-            CashSettlement = request.Settlements.Cash,
-            UpiSettlement = request.Settlements.Upi,
-            CardSettlement = request.Settlements.Card,
-            CorporateSettlement = request.Settlements.Corporate,
-            Notes = request.Notes,
+            CashSettlement = settlements.Cash,
+            UpiSettlement = settlements.Upi,
+            CardSettlement = settlements.Card,
+            CorporateSettlement = settlements.Corporate,
+            Notes = notes,
             OrganizationId = orgId,
             CreatedDate = DateTime.UtcNow,
             IsActive = true

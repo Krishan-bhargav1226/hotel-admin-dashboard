@@ -1,5 +1,6 @@
 using Application.Common.Behaviors;
 using Application.Features.Commons;
+using Application.Interfaces.Services;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,6 +16,8 @@ public static class ServiceCollectionExtension
         services.AddMediator();
         services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LiveUpdateBehavior<,>));
+        services.AddSingleton<ILiveUpdateBroadcaster, NoOpLiveUpdateBroadcaster>();
         services.AddScoped<ValidationManager>();
     }
     public static void AddMapping(this IServiceCollection services)

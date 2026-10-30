@@ -7,6 +7,6 @@ public sealed class UserLoginCommandValidator : AbstractValidator<UserLoginComma
     public UserLoginCommandValidator()
     {
         RuleFor(command => command.Code).NotEmpty().MaximumLength(256);
-        RuleFor(command => command.Password).NotEmpty().MinimumLength(6).MaximumLength(128);
+        RuleFor(command => command.Password).NotEmpty().MinimumLength(8).MaximumLength(128);
     }
 }

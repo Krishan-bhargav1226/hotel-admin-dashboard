@@ -17,8 +17,6 @@ public class NightAuditController : ControllerBase
     }
 
     [HttpGet]
-    [HttpGet("all")]
-    [HttpGet("getall")]
     public async Task<ActionResult> GetAll()
     {
         var data = await _mediator.Send(new GetAllNightAuditQuery());

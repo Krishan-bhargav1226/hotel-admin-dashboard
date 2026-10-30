@@ -2,28 +2,37 @@ import { useState } from "react";
 import toast from "react-hot-toast";
 import { Building2, X } from "lucide-react";
 import { Button } from "../../../components/ui/button";
-import type { HotelProperty } from "../../../utils/interfaces/Interface";
+import type { CreateHotelInput } from "../../../store/services/property/propertySlice";
+import { useSendVenueAdminOtpMutation } from "../../../store/services/property/propertySlice";
 
 interface NewHotelModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: Partial<HotelProperty>) => Promise<void>;
+  onSubmit: (data: CreateHotelInput) => Promise<void>;
   isLoading: boolean;
 }
 
 export function NewHotelModal({ open, onClose, onSubmit, isLoading }: NewHotelModalProps) {
   const [name, setName] = useState("");
-  const [chain, setChain] = useState("Grand Horizon Hotels & Resorts");
-  const [brandTier, setBrandTier] = useState("★★★★★ Luxury Heritage");
+  const [chain, setChain] = useState("");
+  const [brandTier, setBrandTier] = useState("");
   const [location, setLocation] = useState("");
-  const [starRating, setStarRating] = useState("5 Star Luxury");
-  const [roomCount, setRoomCount] = useState(40);
-  const [phone, setPhone] = useState("+91 ");
+  const [starRating, setStarRating] = useState("");
+  const [roomCount, setRoomCount] = useState<number | "">("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
   const [gstin, setGstin] = useState("");
   const [upiId, setUpiId] = useState("");
   const [managerName, setManagerName] = useState("");
+  const [adminFirstName, setAdminFirstName] = useState("");
+  const [adminLastName, setAdminLastName] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPhone, setAdminPhone] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [sendOtp, { isLoading: isSendingOtp }] = useSendVenueAdminOtpMutation();
 
   if (!open) return null;
 
@@ -32,6 +41,11 @@ export function NewHotelModal({ open, onClose, onSubmit, isLoading }: NewHotelMo
     if (!name.trim()) return toast.error("Please enter the hotel name");
     if (!location.trim()) return toast.error("Please enter hotel location");
     if (!gstin.trim()) return toast.error("Please enter hotel GSTIN");
+    if (!adminFirstName.trim() || !adminEmail.trim() || adminPassword.length < 8) {
+      return toast.error("Venue admin needs a name, email, and an 8-character password with upper, lower, and a digit.");
+    }
+    if (!roomCount) return toast.error("Enter the number of rooms");
+    if (otp.trim().length !== 6) return toast.error("Enter the 6-digit code sent to the venue admin email.");
 
     await onSubmit({
       name: name.trim(),
@@ -39,17 +53,37 @@ export function NewHotelModal({ open, onClose, onSubmit, isLoading }: NewHotelMo
       brandTier: brandTier.trim(),
       location: location.trim(),
       starRating: starRating.trim(),
-      roomCount: Number(roomCount) || 30,
-      occupancyRate: 80,
+      roomCount: Number(roomCount),
+      occupancyRate: 0,
       phone: phone.trim(),
-      email: email.trim() || `${name.toLowerCase().replace(/\s+/g, "")}@grandhorizonhotels.com`,
-      address: address.trim() || `${location}, India`,
+      email: email.trim(),
+      address: address.trim(),
       gstin: gstin.trim(),
-      upiId: upiId.trim() || "hotel@upi",
-      managerName: managerName.trim() || "General Manager",
-      dailyRevenue: (Number(roomCount) || 30) * 0.8 * 6000,
-      adr: 6000,
+      upiId: upiId.trim(),
+      managerName: managerName.trim(),
+      venueAdminFirstName: adminFirstName.trim(),
+      venueAdminLastName: adminLastName.trim(),
+      venueAdminEmail: adminEmail.trim(),
+      venueAdminPhone: adminPhone.trim(),
+      venueAdminPassword: adminPassword,
+      venueAdminOtp: Number(otp),
+      dailyRevenue: 0,
+      adr: 0,
     });
+  };
+
+  const handleSendOtp = async () => {
+    if (!adminEmail.trim()) return toast.error("Enter the venue admin email first.");
+    try {
+      await sendOtp({ email: adminEmail.trim() }).unwrap();
+      setOtpSent(true);
+      toast.success("6-digit code sent to the venue admin email.");
+    } catch (err) {
+      const message = err && typeof err === "object" && "data" in err
+        ? (err as { data?: { messages?: string[] } }).data?.messages?.[0]
+        : null;
+      toast.error(message || "Could not send the verification code.");
+    }
   };
 
   return (
@@ -125,7 +159,7 @@ export function NewHotelModal({ open, onClose, onSubmit, isLoading }: NewHotelMo
                 min={1}
                 required
                 value={roomCount}
-                onChange={(e) => setRoomCount(Number(e.target.value))}
+                onChange={(e) => setRoomCount(e.target.value === "" ? "" : Number(e.target.value))}
                 className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-3 font-mono dark:border-slate-700 dark:bg-slate-900"
               />
             </div>
@@ -139,6 +173,7 @@ export function NewHotelModal({ open, onClose, onSubmit, isLoading }: NewHotelMo
                 onChange={(e) => setStarRating(e.target.value)}
                 className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2.5 dark:border-slate-700 dark:bg-slate-900"
               >
+                <option value="">Select classification</option>
                 <option value="5 Star Deluxe">5 Star Deluxe</option>
                 <option value="5 Star Luxury">5 Star Luxury</option>
                 <option value="4 Star Premium">4 Star Premium</option>
@@ -213,6 +248,26 @@ export function NewHotelModal({ open, onClose, onSubmit, isLoading }: NewHotelMo
                 onChange={(e) => setUpiId(e.target.value)}
                 className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-3 font-mono dark:border-slate-700 dark:bg-slate-900"
               />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
+            <p className="font-semibold text-amber-900 dark:text-amber-200">Venue admin login</p>
+            <p className="mt-1 text-[11px] text-amber-800/80 dark:text-amber-300/80">
+              The hotel is created only after this email is verified. The admin can then sign in for this property.
+            </p>
+            <div className="mt-2 grid grid-cols-2 gap-3">
+              <input required placeholder="Admin first name" value={adminFirstName} onChange={(e) => setAdminFirstName(e.target.value)} className="h-9 rounded-lg border border-slate-200 px-3 dark:border-slate-700 dark:bg-slate-900" />
+              <input placeholder="Admin last name" value={adminLastName} onChange={(e) => setAdminLastName(e.target.value)} className="h-9 rounded-lg border border-slate-200 px-3 dark:border-slate-700 dark:bg-slate-900" />
+              <input required type="email" placeholder="admin@hotel.com" value={adminEmail} onChange={(e) => { setAdminEmail(e.target.value); setOtpSent(false); }} className="h-9 rounded-lg border border-slate-200 px-3 dark:border-slate-700 dark:bg-slate-900" />
+              <input placeholder="10-digit phone" value={adminPhone} onChange={(e) => setAdminPhone(e.target.value)} className="h-9 rounded-lg border border-slate-200 px-3 dark:border-slate-700 dark:bg-slate-900" />
+              <input required type="password" placeholder="Password, e.g. Hotel123" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} className="h-9 rounded-lg border border-slate-200 px-3 dark:border-slate-700 dark:bg-slate-900" />
+              <div className="flex gap-2">
+                <input inputMode="numeric" maxLength={6} placeholder="6-digit code" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} className="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 px-3 font-mono dark:border-slate-700 dark:bg-slate-900" />
+                <Button type="button" size="sm" variant="outline" loading={isSendingOtp} onClick={handleSendOtp}>
+                  {otpSent ? "Resend" : "Send code"}
+                </Button>
+              </div>
             </div>
           </div>
 

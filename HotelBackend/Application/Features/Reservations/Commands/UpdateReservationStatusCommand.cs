@@ -1,5 +1,5 @@
 using Application.Interfaces.UnitOfWorkRepositories;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 using Domain.Entities.Reservations;
 using MediatR;
 using Shared;

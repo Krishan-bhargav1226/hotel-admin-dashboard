@@ -12,7 +12,7 @@ export interface RoomGalleryModalProps {
   roomType?: Partial<RoomType> | null;
   roomNumber?: string;
   roomTypeName?: string;
-  category?: RoomCategory;
+  category?: RoomCategory | "";
   images?: string[];
   bedConfig?: string;
   maxGuests?: number;
@@ -22,8 +22,9 @@ export interface RoomGalleryModalProps {
 
 export default function RoomGalleryModal({ open, onClose, room, roomType, roomNumber, roomTypeName, category, images, bedConfig, maxGuests, sizeSqFt, amenities }: RoomGalleryModalProps) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const effectiveRoom = room || (roomNumber ? { number: roomNumber, category } : undefined);
-  const effectiveRoomType = roomType || (roomTypeName ? { name: roomTypeName, category } : undefined);
+  const effectiveCategory = category || undefined;
+  const effectiveRoom = room || (roomNumber ? { number: roomNumber, category: effectiveCategory } : undefined);
+  const effectiveRoomType = roomType || (roomTypeName ? { name: roomTypeName, category: effectiveCategory } : undefined);
   const meta = getRoomMeta(effectiveRoom, effectiveRoomType);
   const gallery = images?.length ? images : getRoomGallery(effectiveRoom, effectiveRoomType);
   const title = roomNumber ? `Room ${roomNumber} · ${roomTypeName || meta.name}` : room ? `Room ${room.number} · ${meta.name}` : meta.name;

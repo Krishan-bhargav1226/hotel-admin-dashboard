@@ -77,7 +77,23 @@ export default function RoomStatusBoard(props: RoomStatusBoardProps) {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
         {roomsOnFloor.map((room) => {
           const stay = activeByRoom.get(room.id);
-          return <RoomTile key={room.id} room={room} roomTypeName={roomTypes.find((type) => type.id === room.roomTypeId)?.name ?? "Standard"} stay={stay} reservation={reservedByRoom.get(room.id)} now={now} onCheckIn={() => onCheckIn(room)} onOpenStay={() => stay && onOpenStay(stay)} onCheckOut={() => stay && onCheckOut(stay)} onOrderService={onOrderService} onSetStatus={(status) => onSetStatus(room.id, status)} />;
+          const matchedType = roomTypes.find((type) => type.id === room.roomTypeId);
+          return (
+            <RoomTile
+              key={room.id}
+              room={room}
+              roomType={matchedType}
+              roomTypeName={matchedType?.name ?? "Standard"}
+              stay={stay}
+              reservation={reservedByRoom.get(room.id)}
+              now={now}
+              onCheckIn={() => onCheckIn(room)}
+              onOpenStay={() => stay && onOpenStay(stay)}
+              onCheckOut={() => stay && onCheckOut(stay)}
+              onOrderService={onOrderService}
+              onSetStatus={(status) => onSetStatus(room.id, status)}
+            />
+          );
         })}
       </div>
     </div>)}

@@ -45,8 +45,6 @@ public class ExpenseController : ControllerBase
     }
 
     [HttpGet]
-    [HttpGet("all")]
-    [HttpGet("getall")]
     public async Task<ActionResult> GetAll([FromQuery] GetAllExpenseQuery query)
     {
         var data = await _mediator.Send(query);

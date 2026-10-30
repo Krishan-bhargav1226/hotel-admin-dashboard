@@ -17,8 +17,6 @@ public class HotelSettingsController : ControllerBase
     }
 
     [HttpGet]
-    [HttpGet("all")]
-    [HttpGet("getall")]
     public async Task<ActionResult> Get()
     {
         var data = await _mediator.Send(new GetHotelSettingQuery());

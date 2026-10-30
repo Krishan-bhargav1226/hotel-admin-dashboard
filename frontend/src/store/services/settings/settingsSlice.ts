@@ -1,49 +1,107 @@
 import { hotelApi } from "../baseQuery";
 import type { HotelSettings } from "../../../utils/interfaces/Interface";
 
+const finite = (value: unknown, fallback: number) => {
+  if (value == null || value === "") return fallback;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+};
+
+const clip = (value: unknown, max: number) => {
+  if (value == null) return "";
+  const text = String(value).trim();
+  return text.length > max ? text.slice(0, max) : text;
+};
+
+const optional = (value: unknown, max: number) => {
+  const text = clip(value, max);
+  return text.length > 0 ? text : null;
+};
+
+const flag = (value: unknown, fallback: boolean) => (typeof value === "boolean" ? value : fallback);
+
+const mapSettings = (res: any): HotelSettings => {
+  const item = res && typeof res === "object" && "hotelName" in res ? res : (res?.data ?? res ?? {});
+  const taxPercent = finite(item.taxPercent, 12);
+  return {
+    hotelName: clip(item.hotelName, 150),
+    chainName: clip(item.chainName, 150),
+    brandTier: clip(item.brandTier, 50),
+    tagline: clip(item.tagline, 200),
+    address: clip(item.address, 300),
+    city: clip(item.city, 100),
+    stateCode: clip(item.stateCode, 20),
+    phone: clip(item.phone, 20),
+    email: clip(item.email, 150),
+    website: clip(item.website, 150),
+    gstin: clip(item.gstin, 20),
+    cin: clip(item.cin, 30),
+    fssai: clip(item.fssai, 20),
+    upiId: clip(item.upiId, 100),
+    taxPercent,
+    cgstPercent: finite(item.cgstPercent, taxPercent / 2),
+    sgstPercent: finite(item.sgstPercent, taxPercent / 2),
+    sacCodeAccommodation: clip(item.sacCodeAccommodation, 20),
+    sacCodeFood: clip(item.sacCodeFood, 20),
+    invoicePrefix: clip(item.invoicePrefix, 20),
+    bankName: clip(item.bankName, 100),
+    bankAccountNo: clip(item.bankAccountNo, 40),
+    bankIfsc: clip(item.bankIfsc, 20),
+    folioPolicy: clip(item.folioPolicy, 500),
+    autoCleaning: flag(item.autoCleaning, true),
+    currencySymbol: clip(item.currencySymbol, 10) || "₹",
+    checkInTime: clip(item.checkInTime, 10),
+    checkOutTime: clip(item.checkOutTime, 10),
+    managerSignatory: clip(item.managerSignatory, 100),
+    logoUrl: item.logoUrl ? String(item.logoUrl) : undefined,
+    enableNightAudit: flag(item.enableNightAudit, true),
+    enableLostAndFound: flag(item.enableLostAndFound, true),
+  };
+};
+
+const settingsBody = (data: HotelSettings) => {
+  const taxPercent = finite(data.taxPercent, 12);
+  return {
+    hotelName: clip(data.hotelName, 150),
+    chainName: optional(data.chainName, 150),
+    brandTier: optional(data.brandTier, 50),
+    tagline: optional(data.tagline, 200),
+    address: optional(data.address, 300),
+    city: optional(data.city, 100),
+    stateCode: optional(data.stateCode, 20),
+    phone: optional(data.phone, 20),
+    email: optional(data.email, 150),
+    website: optional(data.website, 150),
+    gstin: optional(data.gstin, 20),
+    cin: optional(data.cin, 30),
+    fssai: optional(data.fssai, 20),
+    upiId: optional(data.upiId, 100),
+    taxPercent,
+    cgstPercent: finite(data.cgstPercent, taxPercent / 2),
+    sgstPercent: finite(data.sgstPercent, taxPercent / 2),
+    sacCodeAccommodation: optional(data.sacCodeAccommodation, 20),
+    sacCodeFood: optional(data.sacCodeFood, 20),
+    invoicePrefix: optional(data.invoicePrefix, 20),
+    bankName: optional(data.bankName, 100),
+    bankAccountNo: optional(data.bankAccountNo, 40),
+    bankIfsc: optional(data.bankIfsc, 20),
+    folioPolicy: optional(data.folioPolicy, 500),
+    autoCleaning: flag(data.autoCleaning, true),
+    currencySymbol: clip(data.currencySymbol, 10) || "₹",
+    checkInTime: optional(data.checkInTime, 10),
+    checkOutTime: optional(data.checkOutTime, 10),
+    managerSignatory: optional(data.managerSignatory, 100),
+    logoUrl: data.logoUrl || null,
+    enableNightAudit: flag(data.enableNightAudit, true),
+    enableLostAndFound: flag(data.enableLostAndFound, true),
+  };
+};
+
 const settingsApi = hotelApi.injectEndpoints({
   endpoints: (builder) => ({
     getSettings: builder.query<HotelSettings, void>({
       query: () => "/settings",
-      transformResponse: (res: any): HotelSettings => {
-        const item = res?.data ?? res;
-        return {
-          hotelName: item?.hotelName || "Grand Horizon Palace & Spa",
-          chainName: item?.chainName || "Grand Horizon Hotels & Resorts",
-          brandTier: item?.brandTier || "Palace",
-          tagline: item?.tagline || "Heritage Luxury, Redefined",
-          address: item?.address || "Amer Road, Civil Lines, Jaipur, Rajasthan 302006",
-          city: item?.city || "Jaipur",
-          stateCode: item?.stateCode || "08 - Rajasthan",
-          phone: item?.phone || "0141-4567890",
-          email: item?.email || "jaipur@grandhorizon.local",
-          website: item?.website || "https://grandhorizonhotels.com",
-          gstin: item?.gstin || "08AABCG1234P1Z5",
-          cin: item?.cin || "U55101RJ2018PLC048291",
-          fssai: item?.fssai || "10019011000543",
-          upiId: item?.upiId || "grandhorizon.jaipur@okaxis",
-          taxPercent: Number(item?.taxPercent) || 12,
-          cgstPercent: Number(item?.cgstPercent) || 6,
-          sgstPercent: Number(item?.sgstPercent) || 6,
-          sacCodeAccommodation: item?.sacCodeAccommodation || "996311",
-          sacCodeFood: item?.sacCodeFood || "996331",
-          invoicePrefix: item?.invoicePrefix || "GH-JAI/2026/",
-          bankName: item?.bankName || "HDFC Bank Ltd",
-          bankAccountNo: item?.bankAccountNo || "50200084920194",
-          bankIfsc: item?.bankIfsc || "HDFC0001234",
-          folioPolicy:
-            item?.folioPolicy ||
-            "Government issued photo ID is mandatory at check-in. Check-out time is strictly 11:00 AM.",
-          autoCleaning: item?.autoCleaning !== false,
-          currencySymbol: item?.currencySymbol || "₹",
-          checkInTime: item?.checkInTime || "12:00 PM",
-          checkOutTime: item?.checkOutTime || "11:00 AM",
-          managerSignatory: item?.managerSignatory || "Vikram Malhotra (General Manager)",
-          logoUrl: item?.logoUrl || undefined,
-          enableNightAudit: item?.enableNightAudit !== false,
-          enableLostAndFound: item?.enableLostAndFound !== false,
-        };
-      },
+      transformResponse: (res: any) => mapSettings(res),
       providesTags: ["Settings"],
     }),
 
@@ -51,42 +109,9 @@ const settingsApi = hotelApi.injectEndpoints({
       query: (data) => ({
         url: "/settings",
         method: "PUT",
-        body: {
-          hotelName: data.hotelName?.trim(),
-          chainName: data.chainName?.trim(),
-          brandTier: data.brandTier?.trim(),
-          tagline: data.tagline?.trim(),
-          address: data.address?.trim(),
-          city: data.city?.trim(),
-          stateCode: data.stateCode?.trim(),
-          phone: data.phone?.trim(),
-          email: data.email?.trim(),
-          website: data.website?.trim(),
-          gstin: data.gstin?.trim(),
-          cin: data.cin?.trim(),
-          fssai: data.fssai?.trim(),
-          upiId: data.upiId?.trim(),
-          taxPercent: Number(data.taxPercent) || 12,
-          cgstPercent: Number(data.cgstPercent) || 6,
-          sgstPercent: Number(data.sgstPercent) || 6,
-          sacCodeAccommodation: data.sacCodeAccommodation?.trim(),
-          sacCodeFood: data.sacCodeFood?.trim(),
-          invoicePrefix: data.invoicePrefix?.trim(),
-          bankName: data.bankName?.trim(),
-          bankAccountNo: data.bankAccountNo?.trim(),
-          bankIfsc: data.bankIfsc?.trim(),
-          folioPolicy: data.folioPolicy?.trim(),
-          autoCleaning: data.autoCleaning !== false,
-          currencySymbol: data.currencySymbol?.trim() || "₹",
-          checkInTime: data.checkInTime?.trim(),
-          checkOutTime: data.checkOutTime?.trim(),
-          managerSignatory: data.managerSignatory?.trim(),
-          logoUrl: data.logoUrl,
-          enableNightAudit: data.enableNightAudit !== false,
-          enableLostAndFound: data.enableLostAndFound !== false,
-        },
+        body: settingsBody(data),
       }),
-      transformResponse: (_res: any, _meta: any, arg: HotelSettings) => arg,
+      transformResponse: (res: any) => mapSettings(res),
       invalidatesTags: ["Settings", "Property"],
     }),
 

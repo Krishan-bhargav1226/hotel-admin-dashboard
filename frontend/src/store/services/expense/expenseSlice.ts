@@ -11,13 +11,27 @@ export interface CreateExpensePayload {
   notes?: string;
 }
 
+const CATEGORIES = ["", "GROCERY_KITCHEN", "UTILITIES_ELECTRICITY", "LAUNDRY_SUPPLIES", "MAINTENANCE_PARTS", "FUEL_GENERATOR", "STAFF_WELFARE", "OTHER"];
+const PAYMENTS = ["", "CASH", "UPI", "CARD"];
+
+const asEnum = (value: unknown, names: string[], fallback: string) => {
+  if (typeof value === "string" && names.includes(value)) return value;
+  const index = Number(value);
+  return Number.isInteger(index) ? names[index] || fallback : fallback;
+};
+
+const dateOnly = (value: unknown) => {
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(String(value ?? ""));
+  return match?.[1] || new Date().toISOString().slice(0, 10);
+};
+
 const mapBackendExpense = (item: any): HotelExpense => ({
   id: String(item.id),
   title: item.title,
-  category: item.category,
+  category: asEnum(item.category, CATEGORIES, "OTHER") as HotelExpense["category"],
   amount: Number(item.amount) || 0,
-  paymentMode: item.paymentMode,
-  date: item.expenseDate || (item.createdDate ? item.createdDate.slice(0, 10) : new Date().toISOString().slice(0, 10)),
+  paymentMode: asEnum(item.paymentMode, PAYMENTS, "CASH") as HotelExpense["paymentMode"],
+  date: dateOnly(item.expenseDate || item.createdDate),
   paidTo: item.paidTo ?? undefined,
   notes: item.notes ?? undefined,
   createdAt: item.createdDate || new Date().toISOString(),
@@ -41,13 +55,13 @@ const expenseApi = hotelApi.injectEndpoints({
         url: "/expense",
         method: "POST",
         body: {
-          title: payload.title.trim(),
+          title: payload.title.trim().slice(0, 150),
           category: payload.category,
           amount: Number(payload.amount),
           paymentMode: payload.paymentMode,
-          expenseDate: payload.date,
-          paidTo: payload.paidTo?.trim() || null,
-          notes: payload.notes?.trim() || null,
+          expenseDate: dateOnly(payload.date),
+          paidTo: payload.paidTo?.trim().slice(0, 150) || null,
+          notes: payload.notes?.trim().slice(0, 500) || null,
         },
       }),
       transformResponse: (res: any) => mapBackendExpense(res?.data ?? res),

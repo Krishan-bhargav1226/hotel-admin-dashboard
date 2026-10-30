@@ -1,7 +1,7 @@
 using Application.Common.Mappings.Commons;
 using Application.Dto.CommonDtos;
 using Domain.Entities.Expenses;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 
 namespace Application.Dto.Expenses;
 

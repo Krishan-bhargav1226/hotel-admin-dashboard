@@ -43,7 +43,16 @@ public class UserRoleRepository : IUserRoleRepository
 
             if (role == null)
             {
-                role = new Role { Name = roleIdentifier, OrganizationId = 1 };
+                var organizationId = await _context.Users
+                    .Where(x => x.Id == userId)
+                    .Select(x => x.OrganizationId)
+                    .FirstOrDefaultAsync();
+
+                role = new Role
+                {
+                    Name = roleIdentifier,
+                    OrganizationId = organizationId == 0 ? 1 : organizationId
+                };
                 await _context.Roles.AddAsync(role);
                 await _context.SaveChangesAsync();
             }
@@ -69,7 +78,7 @@ public class UserRoleRepository : IUserRoleRepository
     public async Task<List<Role>> GetUserRole(string userId)
     {
         return await _context.UserRoles.Where(x => x.UserId == userId)
-                                          .Include(x => x.Role).ThenInclude(x => x.RoleMenus).ThenInclude(x => x.Menu).ThenInclude(x => x.MenuType)
+                                          .Include(x => x.Role)
                                           .Select(x => x.Role)
                                           .ToListAsync();
     }
