@@ -9,6 +9,7 @@
 - `HotelBackend/Persistence` EF Core, repositories, and Identity storage.
 - `HotelBackend/Infrastructure` external services such as email and chat.
 - `HotelBackend/WebApi` HTTP controllers, health checks, and OpenAPI.
+- `HotelBackend/docs` backend coding standards.
 - `frontend` React, TypeScript, and Redux Toolkit Query.
 
 ## Prerequisites
@@ -57,7 +58,7 @@ dotnet ef database update --project HotelBackend/Persistence --startup-project H
 ## Test
 
 ```bash
-dotnet test HotelBackend/CleanSetupTemplate.slnx
+dotnet test HotelBackend/HotelBackend.slnx
 cd frontend && npm ci && npm run lint && npx tsc --noEmit -p tsconfig.app.json && npm run build
 cd frontend && npm run test:e2e
 ```

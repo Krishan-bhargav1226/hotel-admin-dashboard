@@ -1,4 +1,4 @@
-using Application.Features.Roles.Command;
+using Application.Features.Roles.Commands;
 using Application.Features.Roles.Queries;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;

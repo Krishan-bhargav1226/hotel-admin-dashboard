@@ -7,10 +7,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/too
 import { useGetSettingsQuery } from "../../store/services/settings/settingsSlice";
 import { canAccessPath, useDeskRole } from "../../utils/access/deskRole";
 import { sidebarGroups, sidebarItems } from "./sidebarItems";
-import { AppEndPoints } from "../../utils/rout-endpoints/AppEndPoints";
+import { AppEndPoints } from "../../utils/route-endpoints/AppEndPoints";
 import { useAuth } from "../../utils/auth/authContextDef";
 import { cn } from "../../lib/utils";
-import SwitchAccountModal from "../../components/ui/models/SwitchAccountModal";
+import SwitchAccountModal from "../../components/ui/modals/SwitchAccountModal";
 
 interface SidebarProps {
   sidebarOpen?: boolean;

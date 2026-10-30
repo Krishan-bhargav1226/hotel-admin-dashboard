@@ -12,7 +12,7 @@ import {
   useSwitchActivePropertyMutation,
   useUpdatePropertyMutation,
 } from "../../store/services/property/propertySlice";
-import { AppEndPoints } from "../../utils/rout-endpoints/AppEndPoints";
+import { AppEndPoints } from "../../utils/route-endpoints/AppEndPoints";
 import type { HotelProperty } from "../../utils/interfaces/Interface";
 import { ChainPortfolioKpis } from "./components/ChainPortfolioKpis";
 import { ChainPropertyCard } from "./components/ChainPropertyCard";

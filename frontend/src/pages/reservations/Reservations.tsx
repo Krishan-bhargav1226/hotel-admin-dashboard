@@ -25,7 +25,7 @@ import { useGetRatePlansQuery } from "../../store/services/rate-plan/ratePlanSli
 import { getErrorMessage } from "../../utils/helper/helper";
 import { getRoomMeta } from "../../utils/helper/roomImages";
 import { APP_TEXT } from "../../utils/text/DefaultAppText.utils";
-import { AppEndPoints } from "../../utils/rout-endpoints/AppEndPoints";
+import { AppEndPoints } from "../../utils/route-endpoints/AppEndPoints";
 import type { BookingSource, PaymentMode, Reservation } from "../../utils/interfaces/Interface";
 
 export default function Reservations() {

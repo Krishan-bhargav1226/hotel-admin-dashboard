@@ -4,7 +4,7 @@ import dayjs from "dayjs";
 import toast from "react-hot-toast";
 import { Building2, Menu, Plus } from "lucide-react";
 import { Button } from "../../components/ui/button";
-import UpiQrModal from "../../components/ui/models/UpiQrModal";
+import UpiQrModal from "../../components/ui/modals/UpiQrModal";
 import { NewHotelModal } from "../chain-portfolio/components/NewHotelModal";
 import GlobalSearch from "./components/GlobalSearch";
 import HeaderTools from "./components/HeaderTools";
@@ -20,7 +20,7 @@ import {
   useSwitchActivePropertyMutation,
 } from "../../store/services/property/propertySlice";
 import { buildPath, getErrorMessage } from "../../utils/helper/helper";
-import { AppEndPoints } from "../../utils/rout-endpoints/AppEndPoints";
+import { AppEndPoints } from "../../utils/route-endpoints/AppEndPoints";
 import { useDeskRole } from "../../utils/access/deskRole";
 import { useThemeMode } from "../../utils/theme/themeContext";
 import { joinPropertyGroup } from "../../services/liveUpdates";

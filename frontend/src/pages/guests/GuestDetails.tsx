@@ -12,7 +12,7 @@ import { TableRow } from "../../components/tables/TableRow";
 import { IconButton } from "../../components/ui/buttons/IconButton";
 import GuestForm from "./GuestForm";
 import { useGetGuestByIdQuery } from "../../store/services/guest/guestSlice";
-import { AppEndPoints } from "../../utils/rout-endpoints/AppEndPoints";
+import { AppEndPoints } from "../../utils/route-endpoints/AppEndPoints";
 import { buildPath, formatCurrency } from "../../utils/helper/helper";
 import { formatDateTime } from "../../utils/date/dateUtils";
 import { idTypeName } from "../../utils/helper/constants";

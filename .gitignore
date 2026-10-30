@@ -20,6 +20,7 @@ playwright-report/
 .env
 .env.*
 !.env.example
+**/appsettings.Development.json
 **/appsettings.Production.json
 **/appsettings.*.local.json
 

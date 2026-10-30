@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { Button, DialogActions, TextField } from "@mui/material";
 import { BedDouble, Bath, Sparkles, Tv, Coffee, KeyRound, CheckCircle2 } from "lucide-react";
-import UiDialog from "../../../components/ui/models/UiDialog";
+import UiDialog from "../../../components/ui/modals/UiDialog";
 import UISubmitButton from "../../../components/ui/buttons/UISubmitButton";
 import type { HousekeepingTask } from "../../../utils/interfaces/Interface";
 

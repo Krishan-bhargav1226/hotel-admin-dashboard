@@ -33,9 +33,9 @@ jobs:
         with:
           dotnet-version: "10.0.x"
       - name: Build
-        run: dotnet build HotelBackend/CleanSetupTemplate.slnx -warnaserror
+        run: dotnet build HotelBackend/HotelBackend.slnx -warnaserror
       - name: Test
-        run: dotnet test HotelBackend/CleanSetupTemplate.slnx --no-build
+        run: dotnet test HotelBackend/HotelBackend.slnx --no-build
 
   frontend:
     runs-on: ubuntu-latest

@@ -1,28 +1,37 @@
-# Hotel Admin Dashboard
+# Hotel desk frontend
 
-React + TypeScript + Vite + MUI + Tailwind + Redux Toolkit (RTK Query) + Formik/Yup.
+React, TypeScript, Vite, Tailwind, and Redux Toolkit Query for the hotel operations desk.
 
-## Run
+## Setup
 
 ```bash
-npm install
+cp .env.example .env
+npm ci
 npm run dev
 ```
 
-## Demo sign-in
+`.env` should point at the API:
 
-All accounts use password `admin 123`:
+```bash
+VITE_API_BASE_URL=http://localhost:7444/api
+```
 
-- `superadmin` — chain office overview for both hotels
-- `hotel1admin` / `hotel1desk` — Jaipur
-- `hotel2admin` / `hotel2desk` — Goa
+## Scripts
 
-## Demo workflows
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Local Vite server |
+| `npm run build` | Production build |
+| `npm run lint` | ESLint |
+| `npm run test:e2e` | Playwright end-to-end tests |
 
-- **Dashboard** — hotel portfolio, animated revenue and occupancy views, room board, and operational alerts
-- **Hotels** — add, edit, switch, or remove properties; add rooms from the portfolio
-- **Front desk** — reservations, check-in, stays, check-out, guest records, and room service
-- **Operations** — housekeeping, maintenance, staff shifts, expenses, and night audit
-- **Settings** — rates, room types, hotel details, backup/restore, and demo data
+## Layout
 
-The demo starts with two hotels: Jaipur and Goa. Seed data and edits are stored locally in IndexedDB, including uploaded ID photos. This is a static frontend demo: credentials are included in the app, so do not use it to protect real guest or hotel data. Backups can be downloaded and restored from **Settings → Backup & Export**. The app does not require a backend or a `.env` file.
+- `src/pages` feature screens
+- `src/components` shared UI
+- `src/store` RTK Query slices
+- `src/utils` routes, auth, helpers
+- `e2e` Playwright specs
+- `tests` focused UI checks
+
+Sign in through the API (`POST /api/user/login`). Seed admin credentials come from `HotelBackend/WebApi/appsettings.Development.json`.

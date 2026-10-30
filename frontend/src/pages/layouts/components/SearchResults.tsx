@@ -1,6 +1,6 @@
 import { BedDouble, KeyRound, UserRound } from "lucide-react";
 import { buildPath } from "../../../utils/helper/helper";
-import { AppEndPoints } from "../../../utils/rout-endpoints/AppEndPoints";
+import { AppEndPoints } from "../../../utils/route-endpoints/AppEndPoints";
 import type { Guest, Reservation, Room, Stay } from "../../../utils/interfaces/Interface";
 
 interface SearchResultsProps {

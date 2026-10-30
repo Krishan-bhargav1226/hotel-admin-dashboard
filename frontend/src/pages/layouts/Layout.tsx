@@ -3,7 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { WifiOff } from "lucide-react";
 import { canAccessPath, useDeskRole } from "../../utils/access/deskRole";
-import { AppEndPoints } from "../../utils/rout-endpoints/AppEndPoints";
+import { AppEndPoints } from "../../utils/route-endpoints/AppEndPoints";
 import { TooltipProvider } from "../../components/ui/tooltip";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
 import Breadcrumbs from "./Breadcrumbs";

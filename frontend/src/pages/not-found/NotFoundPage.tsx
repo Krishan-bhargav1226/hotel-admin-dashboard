@@ -1,6 +1,6 @@
 import { Compass, Home, LogIn, UtensilsCrossed } from "lucide-react";
 import { Link } from "react-router-dom";
-import { AppEndPoints } from "../../utils/rout-endpoints/AppEndPoints";
+import { AppEndPoints } from "../../utils/route-endpoints/AppEndPoints";
 import { Button } from "../../components/ui/button";
 
 export default function NotFoundPage() {

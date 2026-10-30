@@ -18,7 +18,7 @@ import { useGetRoomsQuery } from "../../store/services/room/roomSlice";
 import { useNow } from "../../hooks/useNow";
 import { useClientPagination } from "../../hooks/useClientPagination";
 import { ShowConfirmModal } from "../../hooks/useShowConfirmModal";
-import { AppEndPoints } from "../../utils/rout-endpoints/AppEndPoints";
+import { AppEndPoints } from "../../utils/route-endpoints/AppEndPoints";
 import { calculateBill } from "../../utils/helper/billing";
 import { billForStayRooms, stayRoomCount } from "../../utils/helper/stayRooms";
 import { buildPath, formatDuration, getErrorMessage } from "../../utils/helper/helper";

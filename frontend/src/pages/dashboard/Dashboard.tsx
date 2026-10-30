@@ -22,7 +22,7 @@ import { useGetSettingsQuery } from "../../store/services/settings/settingsSlice
 import { useNow } from "../../hooks/useNow";
 import { useDeskRole } from "../../utils/access/deskRole";
 import { useAuth } from "../../utils/auth/authContextDef";
-import { AppEndPoints } from "../../utils/rout-endpoints/AppEndPoints";
+import { AppEndPoints } from "../../utils/route-endpoints/AppEndPoints";
 import { buildPath, getErrorMessage } from "../../utils/helper/helper";
 import { calculateBill } from "../../utils/helper/billing";
 import { billForStayRooms, stayRoomCount } from "../../utils/helper/stayRooms";

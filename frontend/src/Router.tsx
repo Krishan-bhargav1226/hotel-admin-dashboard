@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { AppEndPoints } from "./utils/rout-endpoints/AppEndPoints";
+import { AppEndPoints } from "./utils/route-endpoints/AppEndPoints";
 import Layout from "./pages/layouts/Layout";
 import { StaticRoutes } from "./utils/routes/StaticRoutes";
 import ProtectedRoute from "./utils/auth/ProtectedRoute";

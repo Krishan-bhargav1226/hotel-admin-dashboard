@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "./authContextDef";
-import { AppEndPoints } from "../rout-endpoints/AppEndPoints";
+import { AppEndPoints } from "../route-endpoints/AppEndPoints";
 
 export default function ProtectedRoute() {
   const { isAuthenticated } = useAuth();

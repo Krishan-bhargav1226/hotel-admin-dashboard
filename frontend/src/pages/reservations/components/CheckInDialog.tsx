@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useMemo } from "react";
 import { Button, DialogActions, FormControl, InputLabel, MenuItem, Select, TextField } from "@mui/material";
-import UiDialog from "../../../components/ui/models/UiDialog";
+import UiDialog from "../../../components/ui/modals/UiDialog";
 import UISubmitButton from "../../../components/ui/buttons/UISubmitButton";
 import RoomPhoto from "../../../components/ui/room/RoomPhoto";
 import { formatCurrency } from "../../../utils/helper/helper";

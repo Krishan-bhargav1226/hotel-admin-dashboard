@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { Images } from "../../components/constants/Image";
-import { AppEndPoints } from "../../utils/rout-endpoints/AppEndPoints";
+import { AppEndPoints } from "../../utils/route-endpoints/AppEndPoints";
 import { useAuth } from "../../utils/auth/authContextDef";
 import { mapBackendRole, type DeskRole } from "../../utils/access/deskRole";
 import {

@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { Search } from "lucide-react";
 import { Button, DialogActions, FormControl, InputLabel, MenuItem, Select, TextField } from "@mui/material";
-import UiDialog from "../../../components/ui/models/UiDialog";
+import UiDialog from "../../../components/ui/modals/UiDialog";
 import UISubmitButton from "../../../components/ui/buttons/UISubmitButton";
 import { formatCurrency } from "../../../utils/helper/helper";
 import type { MenuItem as MenuCatalogItem, PaymentMode, ServiceOrderItem, Stay } from "../../../utils/interfaces/Interface";

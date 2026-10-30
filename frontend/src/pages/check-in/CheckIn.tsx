@@ -10,7 +10,7 @@ import { useGetRoomsQuery } from "../../store/services/room/roomSlice";
 import { useGetRoomTypesQuery } from "../../store/services/room-type/roomTypeSlice";
 import { useGetRatePlansQuery } from "../../store/services/rate-plan/ratePlanSlice";
 import { useGetSettingsQuery } from "../../store/services/settings/settingsSlice";
-import { AppEndPoints } from "../../utils/rout-endpoints/AppEndPoints";
+import { AppEndPoints } from "../../utils/route-endpoints/AppEndPoints";
 import { getErrorMessage } from "../../utils/helper/helper";
 import { fromLocalInput, toLocalInput } from "../../utils/date/dateUtils";
 import CheckInWizardForm from "./components/CheckInWizardForm";

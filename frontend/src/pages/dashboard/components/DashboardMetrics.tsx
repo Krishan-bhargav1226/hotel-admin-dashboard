@@ -2,7 +2,7 @@ import { Banknote, BedDouble, CalendarDays, CircleCheck, Sparkles, TrendingUp } 
 import MetricCard from "../../../components/ui/MetricCard";
 import { FadeIn } from "../../../lib/motion";
 import { formatCurrency } from "../../../utils/helper/helper";
-import { AppEndPoints } from "../../../utils/rout-endpoints/AppEndPoints";
+import { AppEndPoints } from "../../../utils/route-endpoints/AppEndPoints";
 
 interface DashboardMetricsProps {
   occupancy: number;

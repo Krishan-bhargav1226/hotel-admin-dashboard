@@ -12,8 +12,8 @@ import CheckoutDialog from "./components/CheckoutDialog";
 import StayGuestPanel from "./components/StayGuestPanel";
 import AssignedRoomPanel from "./components/AssignedRoomPanel";
 import StayBillPanel from "./components/StayBillPanel";
-import UpiQrModal from "../../components/ui/models/UpiQrModal";
-import FolioModal from "../../components/ui/models/FolioModal";
+import UpiQrModal from "../../components/ui/modals/UpiQrModal";
+import FolioModal from "../../components/ui/modals/FolioModal";
 import RoomGalleryModal from "../../components/ui/room/RoomGalleryModal";
 import { useCollectDueMutation, useGetStayByIdQuery, useUpdateStayMutation } from "../../store/services/stay/staySlice";
 import { useGetRoomsQuery } from "../../store/services/room/roomSlice";
@@ -23,7 +23,7 @@ import { useNow } from "../../hooks/useNow";
 import { calculateBill } from "../../utils/helper/billing";
 import { getErrorMessage, uid } from "../../utils/helper/helper";
 import { billForStayRooms, stayRoomCount } from "../../utils/helper/stayRooms";
-import { AppEndPoints } from "../../utils/rout-endpoints/AppEndPoints";
+import { AppEndPoints } from "../../utils/route-endpoints/AppEndPoints";
 import { colors } from "../../utils/theme/colorTheme";
 
 const StayDetails = () => {

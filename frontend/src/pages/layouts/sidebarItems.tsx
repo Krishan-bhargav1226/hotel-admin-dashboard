@@ -17,7 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { APP_TEXT } from "../../utils/text/DefaultAppText.utils";
-import { AppEndPoints } from "../../utils/rout-endpoints/AppEndPoints";
+import { AppEndPoints } from "../../utils/route-endpoints/AppEndPoints";
 
 export interface SidebarItem {
   label: string;

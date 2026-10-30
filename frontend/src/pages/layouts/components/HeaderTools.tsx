@@ -6,9 +6,9 @@ import { Button } from "../../../components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu";
 import type { DeskRole } from "../../../utils/access/deskRole";
 import type { ThemePreference } from "../../../utils/theme/themeContext";
-import { AppEndPoints } from "../../../utils/rout-endpoints/AppEndPoints";
+import { AppEndPoints } from "../../../utils/route-endpoints/AppEndPoints";
 import { useAuth } from "../../../utils/auth/authContextDef";
-import SwitchAccountModal from "../../../components/ui/models/SwitchAccountModal";
+import SwitchAccountModal from "../../../components/ui/modals/SwitchAccountModal";
 
 interface Notice { id: string; title: string; detail: string; href: string; }
 interface HeaderToolsProps {

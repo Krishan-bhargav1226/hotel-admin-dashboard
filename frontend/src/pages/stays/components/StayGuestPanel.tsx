@@ -5,7 +5,7 @@ import MaskedId from "../../../components/ui/MaskedId";
 import { idTypeName } from "../../../utils/helper/constants";
 import { buildPath } from "../../../utils/helper/helper";
 import { partyTypeLabel, stayHeadcount, stayRoomCount } from "../../../utils/helper/stayRooms";
-import { AppEndPoints } from "../../../utils/rout-endpoints/AppEndPoints";
+import { AppEndPoints } from "../../../utils/route-endpoints/AppEndPoints";
 import type { Stay } from "../../../utils/interfaces/Interface";
 
 export default function StayGuestPanel({ stay, onOpenGuest }: { stay: Stay; onOpenGuest: (path: string) => void }) {

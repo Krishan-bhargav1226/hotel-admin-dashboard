@@ -18,7 +18,7 @@ import GuestForm from "./GuestForm";
 import { useDeleteGuestMutation, useGetGuestsQuery } from "../../store/services/guest/guestSlice";
 import { useClientPagination } from "../../hooks/useClientPagination";
 import { ShowConfirmModal } from "../../hooks/useShowConfirmModal";
-import { AppEndPoints } from "../../utils/rout-endpoints/AppEndPoints";
+import { AppEndPoints } from "../../utils/route-endpoints/AppEndPoints";
 import MaskedId from "../../components/ui/MaskedId";
 import { buildPath, formatCurrency, getErrorMessage, maskId } from "../../utils/helper/helper";
 import { formatFullDate } from "../../utils/date/dateUtils";

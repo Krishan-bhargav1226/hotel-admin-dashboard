@@ -1,7 +1,7 @@
 import type { Dispatch, FormEvent, SetStateAction } from "react";
 import { Button, DialogActions, FormControl, InputLabel, MenuItem, Select, TextField } from "@mui/material";
 import UISubmitButton from "../../../components/ui/buttons/UISubmitButton";
-import UiDialog from "../../../components/ui/models/UiDialog";
+import UiDialog from "../../../components/ui/modals/UiDialog";
 import { formatCurrency } from "../../../utils/helper/helper";
 import type { ShiftType } from "../../../utils/interfaces/Interface";
 

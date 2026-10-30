@@ -1,6 +1,6 @@
 import type { FormEvent, Dispatch, SetStateAction } from "react";
 import { Button, DialogActions, FormControl, InputLabel, MenuItem, Select, TextField } from "@mui/material";
-import UiDialog from "../../../components/ui/models/UiDialog";
+import UiDialog from "../../../components/ui/modals/UiDialog";
 import UISubmitButton from "../../../components/ui/buttons/UISubmitButton";
 import type { MenuCategory, MenuItem as MenuCatalogItem } from "../../../utils/interfaces/Interface";
 

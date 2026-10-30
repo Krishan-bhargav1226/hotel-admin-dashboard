@@ -1,6 +1,6 @@
 import { lazy, Suspense, type ComponentType, type LazyExoticComponent, type ReactElement } from "react";
 import PageLoading from "../../components/ui/PageLoading";
-import { AppEndPoints } from "../rout-endpoints/AppEndPoints";
+import { AppEndPoints } from "../route-endpoints/AppEndPoints";
 
 const Dashboard = lazy(() => import("../../pages/dashboard/Dashboard"));
 const CheckIn = lazy(() => import("../../pages/check-in/CheckIn"));

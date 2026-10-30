@@ -10,7 +10,7 @@ using Microsoft.OpenApi;
 using NLog.Web;
 using Persistence.Common.Middleware;
 using Persistence.DataContext;
-using Persistence.Extension;
+using Persistence.Extensions;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Reflection;
 using System.Text.Json.Serialization;

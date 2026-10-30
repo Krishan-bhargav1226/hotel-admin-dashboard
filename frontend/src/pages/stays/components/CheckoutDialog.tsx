@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Box, Button } from "@mui/material";
 import toast from "react-hot-toast";
-import UiDialog from "../../../components/ui/models/UiDialog";
+import UiDialog from "../../../components/ui/modals/UiDialog";
 import UISubmitButton from "../../../components/ui/buttons/UISubmitButton";
 import CheckoutChargesPanel from "./CheckoutChargesPanel";
 import CheckoutBillSummary from "./CheckoutBillSummary";
