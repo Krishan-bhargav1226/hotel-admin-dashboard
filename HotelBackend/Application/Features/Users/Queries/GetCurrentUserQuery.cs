@@ -31,14 +31,10 @@ internal class GetCurrentUserQueryHandler : IRequestHandler<GetCurrentUserQuery,
         var user = await _userManager.Users
             .Include(x => x.UserRoles)
                 .ThenInclude(x => x.Role)
-            .Include(x => x.UserProfile)
-            .Include(x => x.UserAddress)
-                .ThenInclude(x => x.City)
-            .Include(x => x.UserAddress)
-                .ThenInclude(x => x.State)
-            .Include(x => x.UserAddress)
-                .ThenInclude(x => x.Country)
             .FirstOrDefaultAsync(x => x.Id == useOrga.UserId, cancellationToken);
+
+        if (user == null)
+            return Result<GetUserDto>.NotFound("User not found.");
 
         var userDto = _mapper.Map<GetUserDto>(user);
 

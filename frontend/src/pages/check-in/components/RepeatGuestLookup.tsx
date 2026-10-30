@@ -15,7 +15,7 @@ interface RepeatGuestLookupProps {
 }
 
 export default function RepeatGuestLookup({ onSwitchToNewGuestWithPhone }: RepeatGuestLookupProps) {
-  const { values, setFieldValue, setValues } = useFormikContext<CheckInFormValues>();
+  const { values, setFieldValue, setFormikState } = useFormikContext<CheckInFormValues>();
   const [phoneInput, setPhoneInput] = useState(values.phone || "");
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -46,55 +46,56 @@ export default function RepeatGuestLookup({ onSwitchToNewGuestWithPhone }: Repea
       const partyType = guest.guestType || (members.length === 2 ? "COUPLE" : members.length > 2 ? "FAMILY" : "SOLO");
       const adjustedMembers = syncMembersToPartyType(partyType, members);
 
-      setValues({
-        ...values,
-        customerType: "REPEAT",
-        phone: guest.primaryPhone,
-        partyType,
-        guestCount: adjustedMembers.length,
-        members: adjustedMembers,
-        repeatGuestId: guest.id,
-        repeatVisitCount: guest.visitCount,
-        repeatLastVisitAt: guest.lastVisitAt,
-      });
+      setFormikState((state) => ({
+        ...state,
+        values: {
+          ...state.values,
+          customerType: "REPEAT",
+          phone: guest.primaryPhone,
+          partyType,
+          guestCount: adjustedMembers.length,
+          members: adjustedMembers,
+          repeatGuestId: guest.id,
+          repeatVisitCount: guest.visitCount,
+          repeatLastVisitAt: guest.lastVisitAt,
+        },
+      }));
     },
-    [setValues, values],
+    [setFormikState],
   );
 
-  const performLookup = useCallback(
-    async (phoneToLookup: string) => {
+  // Auto-search on 10th digit. Ignore the result if this lookup unmounts
+  // (guest switched to New) so it cannot wipe a document uploaded afterwards.
+  useEffect(() => {
+    const clean = phoneInput.replace(/\D/g, "");
+    if (clean.length !== 10) {
+      setHasSearched(false);
+      setMatches([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
       setIsSearching(true);
       setHasSearched(true);
       try {
-        const results = await lookupGuestByPhone(phoneToLookup);
+        const results = await lookupGuestByPhone(clean);
+        if (cancelled) return;
         setMatches(results);
-
         if (results.length === 1) {
-          // Exactly 1 match -> Auto-select immediately!
           selectGuestMatch(results[0]);
         } else if (results.length === 0) {
-          // Clear previous repeat selection if any
           void setFieldValue("repeatGuestId", undefined);
         }
       } catch {
-        setMatches([]);
+        if (!cancelled) setMatches([]);
       } finally {
-        setIsSearching(false);
+        if (!cancelled) setIsSearching(false);
       }
-    },
-    [selectGuestMatch, setFieldValue],
-  );
-
-  // Auto-search on 10th digit
-  useEffect(() => {
-    const clean = phoneInput.replace(/\D/g, "");
-    if (clean.length === 10) {
-      void performLookup(clean);
-    } else {
-      setHasSearched(false);
-      setMatches([]);
-    }
-  }, [phoneInput, performLookup]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [phoneInput, selectGuestMatch, setFieldValue]);
 
   const handlePhoneInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/\D/g, "").slice(0, 10);
@@ -103,19 +104,31 @@ export default function RepeatGuestLookup({ onSwitchToNewGuestWithPhone }: Repea
   };
 
   const handlePartyTypeChange = (newPartyType: PartyType) => {
-    const adjustedMembers = syncMembersToPartyType(newPartyType, values.members);
-    setValues({
-      ...values,
-      partyType: newPartyType,
-      guestCount: adjustedMembers.length,
-      members: adjustedMembers,
+    setFormikState((state) => {
+      const adjustedMembers = syncMembersToPartyType(newPartyType, state.values.members);
+      return {
+        ...state,
+        values: {
+          ...state.values,
+          partyType: newPartyType,
+          guestCount: adjustedMembers.length,
+          members: adjustedMembers,
+        },
+      };
     });
   };
 
   const handleMemberFieldChange = (index: number, field: keyof CheckInPerson, val: string | boolean | undefined) => {
-    const updated = [...values.members];
-    updated[index] = { ...updated[index], [field]: val };
-    void setFieldValue("members", updated);
+    patchMember(index, { [field]: val });
+  };
+
+  const patchMember = (index: number, patch: Partial<CheckInPerson>) => {
+    setFormikState((state) => {
+      const members = state.values.members.map((member, memberIndex) =>
+        memberIndex === index ? { ...member, ...patch } : member,
+      );
+      return { ...state, values: { ...state.values, members } };
+    });
   };
 
   const addFamilyAdult = () => {
@@ -126,21 +139,23 @@ export default function RepeatGuestLookup({ onSwitchToNewGuestWithPhone }: Repea
       idDocumentId: "",
       isPrimary: false,
     };
-    const nextMembers = [...values.members, newAdult];
-    setValues({
-      ...values,
-      members: nextMembers,
-      guestCount: nextMembers.length,
+    setFormikState((state) => {
+      const nextMembers = [...state.values.members, newAdult];
+      return {
+        ...state,
+        values: { ...state.values, members: nextMembers, guestCount: nextMembers.length },
+      };
     });
   };
 
   const removeMember = (index: number) => {
-    if (values.members.length <= 1) return;
-    const nextMembers = values.members.filter((_, i) => i !== index);
-    setValues({
-      ...values,
-      members: nextMembers,
-      guestCount: nextMembers.length,
+    setFormikState((state) => {
+      if (state.values.members.length <= 1) return state;
+      const nextMembers = state.values.members.filter((_, i) => i !== index);
+      return {
+        ...state,
+        values: { ...state.values, members: nextMembers, guestCount: nextMembers.length },
+      };
     });
   };
 
@@ -487,16 +502,20 @@ export default function RepeatGuestLookup({ onSwitchToNewGuestWithPhone }: Repea
                       isExistingUploaded={member.isExistingUploaded}
                       required={true}
                       onUploaded={(doc) => {
-                        handleMemberFieldChange(index, "idDocumentId", doc.id);
-                        handleMemberFieldChange(index, "idDocumentUrl", doc.url);
-                        handleMemberFieldChange(index, "idDocumentFileName", doc.fileName);
-                        handleMemberFieldChange(index, "isExistingUploaded", false);
+                        patchMember(index, {
+                          idDocumentId: doc.id,
+                          idDocumentUrl: doc.url,
+                          idDocumentFileName: doc.fileName,
+                          isExistingUploaded: false,
+                        });
                       }}
                       onRemove={() => {
-                        handleMemberFieldChange(index, "idDocumentId", "");
-                        handleMemberFieldChange(index, "idDocumentUrl", undefined);
-                        handleMemberFieldChange(index, "idDocumentFileName", undefined);
-                        handleMemberFieldChange(index, "isExistingUploaded", false);
+                        patchMember(index, {
+                          idDocumentId: "",
+                          idDocumentUrl: undefined,
+                          idDocumentFileName: undefined,
+                          isExistingUploaded: false,
+                        });
                       }}
                     />
                   </div>

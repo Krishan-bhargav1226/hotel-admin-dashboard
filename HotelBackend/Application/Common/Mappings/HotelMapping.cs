@@ -3,7 +3,7 @@ using Application.Dto.Rooms;
 using Application.Dto.ServiceOrders;
 using Application.Dto.Stays;
 using AutoMapper;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 using Domain.Entities.RatePlans;
 using Domain.Entities.Rooms;
 using Domain.Entities.ServiceOrders;
@@ -26,6 +26,7 @@ public class HotelMapping : Profile
         CreateMap<ServiceOrder, GetServiceOrderDto>()
             .ForMember(d => d.Items, o => o.MapFrom(s => s.Lines.Where(l => !l.IsDeleted)));
 
+        CreateMap<Domain.Entities.Maintenances.MaintenanceTicket, Application.Dto.Maintenances.GetMaintenanceTicketDto>();
         CreateMap<StayCompanion, GetStayCompanionDto>();
         CreateMap<StayCharge, GetStayChargeDto>();
         CreateMap<Stay, GetStayDto>()

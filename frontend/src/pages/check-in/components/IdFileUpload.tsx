@@ -30,8 +30,10 @@ export default function IdFileUpload({
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const onUploadedRef = useRef(onUploaded);
+  onUploadedRef.current = onUploaded;
 
-  const hasFile = Boolean(documentId && (documentUrl || isExistingUploaded));
+  const hasFile = Boolean(documentId);
   const isPdf = fileName?.toLowerCase().endsWith(".pdf") || documentUrl?.includes("application/pdf");
 
   const processFile = async (rawFile: File) => {
@@ -59,7 +61,10 @@ export default function IdFileUpload({
       const fileToUpload = await compressImageIfNeeded(rawFile, 1600, 0.85);
 
       const result = await uploadIdDocument(fileToUpload);
-      onUploaded({
+      if (!result.id) {
+        throw new Error("Upload succeeded but the server did not return a file path.");
+      }
+      onUploadedRef.current({
         id: result.id,
         url: result.previewUrl,
         fileName: result.fileName,
@@ -74,6 +79,7 @@ export default function IdFileUpload({
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (file) {
       void processFile(file);
     }

@@ -1,64 +1,112 @@
-﻿using Application.Features.Commons;
-using Application.Interfaces.Repositories.UserIdAndOrganizationIds;
+using Application.Features.Commons;
 using Application.Interfaces.Services;
 using Domain.Entities.ApplicationUsers;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Shared;
 
 namespace Application.Features.Users;
 
-public class UserLoginCommand : IRequest<Result<string>>
+public class UserLoginResponse
 {
-    public string Code { get; set; }
-    public string Password { get; set; }
+    public bool RequiresOtp { get; set; }
+    public string? Email { get; set; }
+    public string? Username { get; set; }
+    public string? UserId { get; set; }
+    public string? Token { get; set; }
+    public string? Message { get; set; }
+    public string? Role { get; set; }
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
+    public int OrganizationId { get; set; }
+    public int? PropertyId { get; set; }
 }
 
-internal class UserLoginCommandHandler : IRequestHandler<UserLoginCommand, Result<string>>
+public class UserLoginCommand : IRequest<Result<UserLoginResponse>>
+{
+    public string Code { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+}
+
+internal class UserLoginCommandHandler : IRequestHandler<UserLoginCommand, Result<UserLoginResponse>>
 {
     private readonly UserManager<User> _userManager;
-    private readonly IJWTService _jWTService;
-    private readonly IUserIdAndOrganizationIdRepository _userIdAndOrganizationIdRepository;
+    private readonly IJWTService _jwtService;
+    private readonly IConfiguration _configuration;
 
-    public UserLoginCommandHandler(UserManager<User> userManager, IJWTService jWTService, IUserIdAndOrganizationIdRepository userIdAndOrganizationIdRepository)
+    public UserLoginCommandHandler(UserManager<User> userManager, IJWTService jwtService, IConfiguration configuration)
     {
         _userManager = userManager;
-        _jWTService = jWTService;
-        _userIdAndOrganizationIdRepository = userIdAndOrganizationIdRepository;
+        _jwtService = jwtService;
+        _configuration = configuration;
     }
 
-    async Task<Result<string>> IRequestHandler<UserLoginCommand, Result<string>>.Handle(UserLoginCommand request, CancellationToken cancellationToken)
+    public async Task<Result<UserLoginResponse>> Handle(UserLoginCommand request, CancellationToken cancellationToken)
     {
-        var useOrga = await _userIdAndOrganizationIdRepository.Get();
+        var inputCode = (request.Code ?? string.Empty).Trim();
+        foreach (var alias in _configuration.GetSection("Auth:LoginAliases").GetChildren())
+        {
+            if (inputCode.Equals(alias.Key, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(alias.Value))
+            {
+                inputCode = alias.Value;
+                break;
+            }
+        }
 
-        User? user = null;
+        var normalized = inputCode.ToLower();
+        User? user;
 
-        if (!ValidationManager.IsValidPhoneNumber(request.Code) && request.Code.Contains("@"))
+        if (inputCode.Contains('@'))
         {
             user = await _userManager.Users
-               .Include(x => x.Organization)
-               .FirstOrDefaultAsync(x => x.Email.ToLower() == request.Code.ToLower()&&x.EmailConfirmed);
+                .FirstOrDefaultAsync(x => x.Email != null && x.Email.ToLower() == normalized, cancellationToken);
         }
-        else if (ValidationManager.IsValidPhoneNumber(request.Code))
+        else if (ValidationManager.IsValidPhoneNumber(inputCode))
         {
-            user = await _userManager.Users.Include(x => x.Organization)
-               .Where(x => x.PhoneNumber.ToLower() == request.Code.ToLower() &&x.PhoneNumberConfirmed)
-               .FirstOrDefaultAsync();
+            user = await _userManager.Users
+                .FirstOrDefaultAsync(x => x.PhoneNumber == inputCode, cancellationToken);
         }
-
-        if (user == null)
+        else
         {
-            return Result<string>.BadRequest($"Username or password is incorrect!");
+            user = await _userManager.Users
+                .FirstOrDefaultAsync(x => x.UserName != null && x.UserName.ToLower() == normalized, cancellationToken);
         }
 
-        if (!await _userManager.CheckPasswordAsync(user, request.Password))
+        if (user == null || user.IsDeleted || !user.IsActive)
+            return Result<UserLoginResponse>.BadRequest("Username or password is incorrect!");
+
+        if (await _userManager.IsLockedOutAsync(user))
+            return Result<UserLoginResponse>.BadRequest("This account is locked after too many attempts. Try again in a few minutes.");
+
+        var isPasswordValid = await _userManager.CheckPasswordAsync(user, request.Password);
+        if (!isPasswordValid)
         {
-            return Result<string>.BadRequest("Username or password is incorrect!");
+            await _userManager.AccessFailedAsync(user);
+            return Result<UserLoginResponse>.BadRequest("Username or password is incorrect!");
         }
 
-        string token = await _jWTService.GenerateToken(user.Id);
+        if (!user.EmailConfirmed)
+            return Result<UserLoginResponse>.BadRequest("Verify your email before signing in. Check your inbox for the code.");
 
-        return Result<string>.Success(user.Id, "LogIn successfully....", token);
+        await _userManager.ResetAccessFailedCountAsync(user);
+        var roles = await _userManager.GetRolesAsync(user);
+        var token = await _jwtService.GenerateToken(user.Id);
+
+        return Result<UserLoginResponse>.Success(new UserLoginResponse
+        {
+            RequiresOtp = false,
+            Email = user.Email,
+            Username = user.UserName,
+            UserId = user.Id,
+            Token = token,
+            Message = "LogIn successfully.",
+            Role = roles.FirstOrDefault() ?? "User",
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            OrganizationId = user.OrganizationId,
+            PropertyId = user.PropertyId
+        }, "LogIn successfully.", token);
     }
 }

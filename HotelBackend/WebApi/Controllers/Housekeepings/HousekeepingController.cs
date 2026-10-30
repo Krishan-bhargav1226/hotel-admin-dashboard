@@ -1,5 +1,5 @@
 using Application.Features.Housekeepings.Commands;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 

@@ -31,7 +31,6 @@ internal class GetRoleByIdQueryHandler : IRequestHandler<GetRoleByIdQuery, Resul
     public async Task<Result<GetRoleDto>> Handle(GetRoleByIdQuery request, CancellationToken cancellationToken)
     {
         var role = await _roleManager.Roles
-            .Include(x => x.RoleMenus).ThenInclude(x => x.Menu).ThenInclude(x => x.MenuType)
             .FirstOrDefaultAsync(x => x.Id == request.Id.ToString());
 
         if (role == null)

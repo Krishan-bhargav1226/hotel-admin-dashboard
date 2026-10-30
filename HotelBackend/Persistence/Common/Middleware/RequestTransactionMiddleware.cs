@@ -15,14 +15,22 @@ public sealed class RequestTransactionMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        if (HttpMethods.IsGet(context.Request.Method))
+        var path = context.Request.Path.Value?.ToLowerInvariant() ?? "";
+        if (HttpMethods.IsGet(context.Request.Method) || 
+            HttpMethods.IsOptions(context.Request.Method) ||
+            HttpMethods.IsHead(context.Request.Method) ||
+            path.StartsWith("/api/chat") ||
+            path.StartsWith("/api/fileupload") ||
+            path.StartsWith("/swagger") ||
+            path.StartsWith("/api-docs") ||
+            path is "/api/user/login" or "/api/user/verify-otp" or "/api/user/forget-password" or "/api/user/reset-password" or "/api/user/resend-verification")
         {
             await _next(context);
             return;
         }
 
         var db = context.RequestServices.GetService<ApplicationDbContext>();
-        if (db == null)
+        if (db == null || db.Database.CurrentTransaction != null)
         {
             await _next(context);
             return;
@@ -33,7 +41,14 @@ public sealed class RequestTransactionMiddleware
         try
         {
             await _next(context);
-            await transaction.CommitAsync();
+            if (context.Response.StatusCode >= 400)
+            {
+                await transaction.RollbackAsync();
+            }
+            else
+            {
+                await transaction.CommitAsync();
+            }
         }
         catch
         {

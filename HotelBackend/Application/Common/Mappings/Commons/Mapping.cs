@@ -1,12 +1,7 @@
-﻿using Application.Dto.CommonDtos;
-using Application.Dto.Users.UserRoles;
+﻿using Application.Dto.Users.UserRoles;
 using AutoMapper;
 using Domain.Entities.ApplicationRoles;
-using Domain.Entities.Locations.LocationTypes;
-using Domain.Entities.MenuTypes;
 using System.Reflection;
-using Application.Features.Locations.Commands;
-using Domain.Entities.Locations;
 
 namespace Application.Common.Mappings.Commons;
 
@@ -15,19 +10,7 @@ public class Mapping : Profile
     public Mapping()
     {
         ApplyMappingsFromAssembly(Assembly.GetExecutingAssembly());
-
-        CreateMap<LocationType, IdAndNameDto>()
-            .ForMember(x => x.Id, opt => opt.MapFrom(x => (int)x))
-            .ForMember(x => x.Name, opt => opt.MapFrom(x => x.ToString()));
-
-        CreateMap<MenuType, IdAndNameDto>()
-            .ForMember(x => x.Id, opt => opt.MapFrom(x => x.Id))
-            .ForMember(x => x.Name, opt => opt.MapFrom(x => x.Name));
-
-        CreateMap<CreateLocationCommand, Location>();
-        
-        CreateMap<Role, GetRoleDto>()
-            .ForMember(x => x.Menus, opt => opt.MapFrom(x => x.RoleMenus.Select(x => x.Menu)));
+        CreateMap<Role, GetRoleDto>();
     }
 
     private void ApplyMappingsFromAssembly(Assembly assembly)

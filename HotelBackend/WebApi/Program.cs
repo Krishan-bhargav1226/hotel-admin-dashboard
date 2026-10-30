@@ -1,13 +1,12 @@
 using Application.Extensions;
-using Domain.Common.Enums.Users;
-using Domain.Entities.ApplicationRoles;
-using Domain.Entities.ApplicationUsers;
-using Domain.Entities.Organizations;
-using Microsoft.AspNetCore.Identity;
+using Application.Interfaces.Services;
 using Infrastructure.Extensions;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using NLog.Web;
 using Persistence.Common.Middleware;
 using Persistence.DataContext;
@@ -16,8 +15,9 @@ using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Reflection;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using WebApi.Bootstrap;
 using WebApi.CustomMiddleware.NLog;
-using WebApi.CustomMiddlewares.Claims;
+using WebApi.Infrastructure;
 
 namespace WebApi;
 
@@ -46,39 +46,72 @@ public class Program
 
         builder.Services.ApplicationLayer();
         builder.Services.AddInfrastructure();
+        builder.Services.AddSingleton<ILiveUpdateBroadcaster, SignalRLiveUpdateBroadcaster>();
 
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddEndpointsApiExplorer();
+        builder.Services.AddOpenApi();
+        builder.Services.AddProblemDetails();
+        builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+        builder.Services.AddResponseCompression();
+        builder.Services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            options.KnownIPNetworks.Clear();
+            options.KnownProxies.Clear();
+        });
+        builder.Services.AddHealthChecks()
+            .AddDbContextCheck<ApplicationDbContext>("database", tags: ["ready"]);
+        builder.Services.AddAuthorization(options =>
+        {
+            options.FallbackPolicy = new AuthorizationPolicyBuilder()
+                .RequireAuthenticatedUser()
+                .Build();
+        });
 
         builder.Services.AddRateLimiter(options =>
         {
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
                 RateLimitPartition.GetFixedWindowLimiter(
                     partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     factory: _ => new FixedWindowRateLimiterOptions
                     {
                         PermitLimit = 300,
-                        Window = TimeSpan.FromMinutes(1) // Per 1 minute
+                        Window = TimeSpan.FromMinutes(1)
+                    }));
+            options.AddPolicy("auth", httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 10,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0
                     }));
 
             options.OnRejected = async (context, token) =>
             {
-                context.HttpContext.Response.StatusCode = 429;
-                await context.HttpContext.Response.WriteAsync("Too many requests! Try again after 1 minute");
+                context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                await context.HttpContext.Response.WriteAsync("Too many requests. Try again later.", token);
             };
         });
 
+        var corsOrigins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [];
+        if (corsOrigins.Length == 0 && builder.Environment.IsDevelopment())
+        {
+            corsOrigins = ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:4173"];
+        }
+
         builder.Services.AddCors(options =>
         {
-            options.AddPolicy(name: "AllowOrigin",
-                builder =>
-                {
-                    builder.AllowAnyMethod()    // Allows any HTTP methods
-                           .AllowAnyHeader()    // Allows any headers
-                                                //.SetIsOriginAllowed(host => true)
-                           .SetIsOriginAllowed(_ => true)// Allows any origin (for dev, be more specific in prod)
-                           .AllowCredentials(); // Allows credentials like cookies or tokens
-                });
+            options.AddPolicy("AllowOrigin", policy =>
+            {
+                policy.WithOrigins(corsOrigins)
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .AllowCredentials();
+            });
         });
 
         // Configure Swagger
@@ -89,156 +122,99 @@ public class Program
             // Optional: Custom operation IDs
             c.CustomOperationIds(apiDesc =>
             {
-                return apiDesc.TryGetMethodInfo(out MethodInfo methodInfo) ? methodInfo.Name : null;
+                if (!apiDesc.TryGetMethodInfo(out MethodInfo methodInfo))
+                    return null;
+                var controller = apiDesc.ActionDescriptor.RouteValues.TryGetValue("controller", out var name)
+                    ? name
+                    : "Api";
+                return $"{controller}_{methodInfo.Name}";
             });
 
-            // Add JWT Bearer Security
-            var securityScheme = new OpenApiSecurityScheme
+            c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
             {
                 Name = "Authorization",
-                Description = "Enter 'Bearer {Token}'",
+                Description = "Enter a JWT bearer token",
                 Type = SecuritySchemeType.Http,
                 Scheme = "bearer",
                 BearerFormat = "JWT",
-                In = ParameterLocation.Header,
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            };
-
-            c.AddSecurityDefinition("Bearer", securityScheme);
-
-            c.AddSecurityRequirement(new OpenApiSecurityRequirement
-            {
-                {
-                    new OpenApiSecurityScheme
-                    {
-                        Reference = new OpenApiReference
-                        {
-                            Type = ReferenceType.SecurityScheme,
-                            Id = "Bearer"
-                        },
-                        Scheme = "oauth2",
-                        Name = "Bearer",
-                        In = ParameterLocation.Header,
-                    },
-                    Array.Empty<string>()
-                },
+                In = ParameterLocation.Header
             });
+
+            c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+            {
+                [new OpenApiSecuritySchemeReference("Bearer", document)] = []
+            });
+        });
+
+        builder.WebHost.ConfigureKestrel(options =>
+        {
+            options.Limits.MaxRequestBodySize = 30 * 1024 * 1024;
         });
 
         builder.Services.Configure<FormOptions>(options =>
         {
-            options.MultipartBodyLengthLimit = 30 * 1024 * 1024; // setting max upload file size to 30MB
+            options.MultipartBodyLengthLimit = 30 * 1024 * 1024;
         });
 
         var app = builder.Build();
 
-        // Middleware configuration
+        if (app.Environment.IsProduction())
+        {
+            var issuer = app.Configuration["JwtSettings:Issuer"] ?? "";
+            var audience = app.Configuration["JwtSettings:Audience"] ?? "";
+            if (issuer.Contains("localhost", StringComparison.OrdinalIgnoreCase) || audience.Contains("localhost", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Set JwtSettings__Issuer and JwtSettings__Audience to the public site before production.");
+
+            var origins = app.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [];
+            if (origins.Length == 0 || origins.All(origin => origin.Contains("localhost", StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException("Set Cors__Origins to the production frontend URL.");
+        }
+
+        app.UseExceptionHandler();
+        app.UseForwardedHeaders();
+        app.UseResponseCompression();
+        app.UseMiddleware<SecurityHeadersMiddleware>();
+        app.UseMiddleware<CorrelationIdMiddleware>();
         app.UseHttpsRedirection();
-        app.UseHsts();
+        if (!app.Environment.IsDevelopment())
+            app.UseHsts();
 
         app.UseCors("AllowOrigin");
-
         app.UseRateLimiter();
-
         app.UseMiddleware<NLogMiddleware>();
-
         app.UseStaticFiles();
 
-    app.UseMiddleware<RequestTransactionMiddleware>();
-
-        app.UseAuthentication();
-        app.UseAuthorization();
-
-        //app.UseMiddleware<ClaimMiddleware>();
-
-        // Enable Swagger in all environments
         if (app.Environment.IsDevelopment())
         {
             app.UseSwagger();
             app.UseSwaggerUI();
         }
-        else
+
+        app.UseAuthentication();
+        app.UseAuthorization();
+        app.UseMiddleware<RequestTransactionMiddleware>();
+
+        if (app.Environment.IsDevelopment())
+            app.MapOpenApi().AllowAnonymous();
+
+        app.MapHealthChecks("/health/live", new HealthCheckOptions
         {
-            app.UseSwagger();
-            app.UseSwaggerUI(options =>
-            {
-                options.SwaggerEndpoint("./swagger/v1/swagger.json", "Web Api v1");
-                options.RoutePrefix = "";
-            });
-        }
+            Predicate = _ => false
+        }).AllowAnonymous();
+        app.MapHealthChecks("/health/ready", new HealthCheckOptions
+        {
+            Predicate = check => check.Tags.Contains("ready")
+        }).AllowAnonymous();
 
         app.MapControllers();
+        app.MapHub<ActivityHub>("/hubs/live");
 
-        using (var scope = app.Services.CreateScope())
+        if (app.Environment.IsDevelopment())
         {
-            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            if (!db.Organizations.Any())
-            {
-                db.Organizations.Add(new Organization
-                {
-                    Name = "Hotel",
-                    IsApproved = true,
-                    CreatedDate = DateTime.UtcNow,
-                    IsDeleted = false
-                });
-                db.SaveChanges();
-            }
-
-            var organizationId = db.Organizations.OrderBy(x => x.Id).Select(x => x.Id).First();
-            SeedAccess(scope.ServiceProvider, organizationId).GetAwaiter().GetResult();
+            using var scope = app.Services.CreateScope();
+            DevelopmentSeeder.SeedAsync(scope.ServiceProvider).GetAwaiter().GetResult();
         }
 
         app.Run();
     }
-
-    private const string SeedPassword = "Hotel@123";
-
-    private static readonly (string Email, string FirstName, string LastName, string Role)[] SeedUsers =
-    [
-        ("superadmin@hotel.local", "Super", "Admin", "SuperAdmin"),
-        ("hotel1.admin@hotel.local", "Hotel 1", "Admin", "Admin"),
-        ("hotel1.desk@hotel.local", "Hotel 1", "Front Desk", "Reception"),
-        ("hotel2.admin@hotel.local", "Hotel 2", "Admin", "Admin"),
-        ("hotel2.desk@hotel.local", "Hotel 2", "Front Desk", "Reception"),
-    ];
-
-    private static async Task SeedAccess(IServiceProvider services, int organizationId)
-    {
-        var roleManager = services.GetRequiredService<RoleManager<Role>>();
-        foreach (var roleName in SeedUsers.Select(x => x.Role).Distinct())
-        {
-            if (!await roleManager.RoleExistsAsync(roleName))
-                await roleManager.CreateAsync(new Role { Name = roleName, OrganizationId = organizationId });
-        }
-
-        var userManager = services.GetRequiredService<UserManager<User>>();
-        foreach (var seed in SeedUsers)
-        {
-            var user = await userManager.FindByEmailAsync(seed.Email);
-            if (user == null)
-            {
-                user = new User
-                {
-                    UserName = seed.Email,
-                    Email = seed.Email,
-                    FirstName = seed.FirstName,
-                    LastName = seed.LastName,
-                    OrganizationId = organizationId,
-                    EmailConfirmed = true,
-                    UserType = UserType.Employee
-                };
-                var created = await userManager.CreateAsync(user, SeedPassword);
-                if (!created.Succeeded)
-                    continue;
-            }
-
-            if (!await userManager.IsInRoleAsync(user, seed.Role))
-                await userManager.AddToRoleAsync(user, seed.Role);
-        }
-    }
-
 }

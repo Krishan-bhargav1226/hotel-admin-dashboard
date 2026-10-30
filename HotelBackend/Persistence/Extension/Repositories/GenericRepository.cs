@@ -107,14 +107,13 @@ public class GenericRepository<T> : IGenericRepository<T> where T : BaseAuditabl
         var useOrga = await _userIdAndOrganizationIdRepository.Get();
 
         T? exist = _context.Set<T>().Find(id != 0 ? id : entity.Id);
+        if (exist is null)
+            return;
 
         entity.UpdatedDate = DateTime.UtcNow;
-
         if (!string.IsNullOrEmpty(useOrga.UserId))
-        {
             entity.UpdatedBy = useOrga.UserId;
-        }
 
-        _context.Entry(exist).CurrentValues.SetValues(exist);
+        _context.Entry(exist).CurrentValues.SetValues(entity);
     }
 }

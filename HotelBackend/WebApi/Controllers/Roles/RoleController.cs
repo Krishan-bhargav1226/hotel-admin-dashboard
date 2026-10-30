@@ -1,12 +1,14 @@
-﻿using Application.Features.Roles.Command;
+using Application.Features.Roles.Command;
 using Application.Features.Roles.Queries;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace WebApi.Controllers.UserRoles;
 
 [Route("api/role")]
 [ApiController]
+[Authorize(Roles = "SuperAdmin")]
 public class RoleController : ControllerBase
 {
     private readonly IMediator _mediator;
@@ -55,17 +57,11 @@ public class RoleController : ControllerBase
 
     }
 
-    [HttpPut("{id}/menu")]
-    public async Task<ActionResult> CreateRoleClaim(Guid id, [FromBody] string[] menuIds)
-    {
-        var data = await _mediator.Send(new CreateUpdateRoleClaimCommand(id, menuIds));
-        return ResponseHelper.GenerateResponse(data);
-    }
-
     [HttpPut("/api/user/{id}/role")]
-    public async Task<ActionResult> CreateUserRole(string id, [FromBody] List<string> roles)
+    public async Task<ActionResult> CreateUserRole(string id, AssignUserAccessCommand command)
     {
-        var data = await _mediator.Send(new CreateUpdateUserRoleCommand(id, roles));
+        command.UserId = id;
+        var data = await _mediator.Send(command);
         return ResponseHelper.GenerateResponse(data);
     }
 

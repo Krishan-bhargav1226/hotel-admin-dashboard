@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import MainContainer from "../../components/ui/container/MainContainer";
 import PageTitle from "../../components/ui/container/PageTitle";
@@ -20,6 +20,15 @@ export default function Rooms() {
   const [updateStatus] = useUpdateRoomStatusMutation();
   const [drawer, setDrawer] = useState<{ open: boolean; room: Room | null; bulk: boolean }>({ open: false, room: null, bulk: false });
   const [guestCategoryFilter, setGuestCategoryFilter] = useState("ALL");
+
+  useEffect(() => {
+    setDrawer((current) => {
+      if (!current.open || !current.room) return current;
+      const next = rooms.find((room) => room.id === current.room?.id);
+      if (!next) return { ...current, open: false, room: null };
+      return next === current.room ? current : { ...current, room: next };
+    });
+  }, [rooms]);
 
   const filteredRooms = useMemo(() => guestCategoryFilter === "ALL" ? rooms : rooms.filter((room) => getRoomMeta(room, types.find((type) => type.id === room.roomTypeId)).category === guestCategoryFilter), [rooms, types, guestCategoryFilter]);
   const floors = useMemo(() => {

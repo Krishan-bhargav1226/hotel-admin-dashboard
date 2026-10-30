@@ -9,6 +9,8 @@ import { ErrorBoundary } from "../../components/ErrorBoundary";
 import Breadcrumbs from "./Breadcrumbs";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
+import GeminiChatWidget from "../../components/chat/GeminiChatWidget";
+import { useLiveUpdates } from "../../services/liveUpdates";
 
 const drawerWidthOpen = 248;
 const drawerWidthClosed = 76;
@@ -17,6 +19,7 @@ const motionEase = [0.22, 1, 0.36, 1] as const;
 export default function Layout() {
   const location = useLocation();
   const { role } = useDeskRole();
+  useLiveUpdates();
   const reduce = useReducedMotion();
   const allowed = canAccessPath(role, location.pathname);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -65,6 +68,9 @@ export default function Layout() {
       [AppEndPoints.EXPENSES]: "Operating Expenses",
       [AppEndPoints.REPORTS]: "Reports & Analytics",
       [AppEndPoints.SETTINGS]: "Settings",
+      [AppEndPoints.LOST_FOUND]: "Lost & Found",
+      [AppEndPoints.NIGHT_AUDIT]: "Night Audit",
+      [AppEndPoints.CHAIN_PORTFOLIO]: "Chain Portfolio",
     };
 
     const title = PATH_TITLES[location.pathname] || (location.pathname.startsWith("/stays/") ? "Stay Details" : location.pathname.startsWith("/guests/") ? "Guest Profile" : "Hotel Admin");
@@ -161,6 +167,7 @@ export default function Layout() {
             )}
           </main>
         </div>
+        <GeminiChatWidget pageContext={location.pathname} />
       </div>
     </TooltipProvider>
   );

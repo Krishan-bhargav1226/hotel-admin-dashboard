@@ -4,7 +4,7 @@ using Application.Interfaces.Repositories.Documents;
 using Application.Interfaces.Repositories.UserIdAndOrganizationIds;
 using Application.Interfaces.UnitOfWorkRepositories;
 using AutoMapper;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 using Domain.Entities.Properties;
 using Domain.Entities.RoomTypes;
 using Domain.Entities.Rooms;
@@ -73,12 +73,24 @@ internal class CreateRoomCommandHandler : IRequestHandler<CreateRoomCommand, Res
         if ((int)request.Status == 0)
             request.Status = RoomStatus.AVAILABLE;
 
+        var propertyId = await RoomHotel.ResolveAsync(_unitOfWork, userOrg.PropertyId, request.PropertyId, cancellationToken);
+        if (propertyId == null)
+            return Result<int>.BadRequest("Select the hotel this room belongs to.");
+        request.PropertyId = propertyId;
+
         await Validate(request, cancellationToken);
 
+        var claimed = await RoomHotel.ClaimUnassignedAsync(_unitOfWork, propertyId.Value, cancellationToken);
+        if (claimed.Any(room => room.Number.Equals(request.Number.Trim(), StringComparison.OrdinalIgnoreCase)))
+        {
+            await _unitOfWork.Save(cancellationToken);
+            return Result<int>.Success(claimed.First(room => room.Number.Equals(request.Number.Trim(), StringComparison.OrdinalIgnoreCase)).Id, "Room created successfully.");
+        }
+
         var duplicate = await _unitOfWork.Repository<Room>().Entities
-            .AnyAsync(x => x.Number.ToLower() == request.Number.ToLower(), cancellationToken);
+            .AnyAsync(x => x.PropertyId == propertyId && x.Number.ToLower() == request.Number.Trim().ToLower(), cancellationToken);
         if (duplicate)
-            return Result<int>.BadRequest($"Room already exists.");
+            return Result<int>.BadRequest("Room already exists.");
 
         var entity = _mapper.Map<Room>(request);
 

@@ -1,4 +1,3 @@
-﻿using Application.Features.Employees.Queries;
 using Application.Features.Users;
 using Application.Features.Users.Commands;
 using Application.Features.Users.Queries;
@@ -6,6 +5,7 @@ using Application.Features.Users.Queries.GetAllUsers;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace WebApi.Controllers.Users;
 
@@ -20,6 +20,7 @@ public class UserController : ControllerBase
         _mediator = mediator;
     }
 
+    [Authorize(Roles = "SuperAdmin")]
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
     {
@@ -27,6 +28,7 @@ public class UserController : ControllerBase
         return ResponseHelper.GenerateResponse(data);
     }
 
+    [Authorize(Roles = "SuperAdmin")]
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] GetAllUserQuery query)
     {
@@ -41,6 +43,8 @@ public class UserController : ControllerBase
         return ResponseHelper.GenerateResponse(data);
     }
 
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     [HttpPost("register")]
     public async Task<IActionResult> Register(UserRegistrationCommand command)
     {
@@ -48,8 +52,9 @@ public class UserController : ControllerBase
         return ResponseHelper.GenerateResponse(data);
     }
 
+    [Authorize(Roles = "SuperAdmin")]
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(string id, [FromForm]UpdateUserCommand command)
+    public async Task<IActionResult> Update(string id, UpdateUserCommand command)
     {
         command.Id = id;
         var data = await _mediator.Send(command);
@@ -57,40 +62,17 @@ public class UserController : ControllerBase
     }
 
     [HttpPut("current")]
-    public async Task<IActionResult> UpdateCurrentUser([FromForm]UpdateCurrentUserCommand command)
+    public async Task<IActionResult> UpdateCurrentUser(UpdateCurrentUserCommand command)
     {
         var data = await _mediator.Send(command);
         return ResponseHelper.GenerateResponse(data);
     }
 
+    [Authorize(Roles = "SuperAdmin")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
         var data = await _mediator.Send(new DeleteUserCommand(id));
-        return ResponseHelper.GenerateResponse(data);
-    }
-
-    [AllowAnonymous]
-    [HttpGet("blood-group/lookup")]
-    public async Task<ActionResult> GetBloodGroupLookup()
-    {
-        var data = await _mediator.Send(new GetBloodGroupLookupQuery());
-        return ResponseHelper.GenerateResponse(data);
-    }
-
-    [AllowAnonymous]
-    [HttpGet("gender/lookup")]
-    public async Task<ActionResult> GetGenderLookup()
-    {
-        var data = await _mediator.Send(new GetGenderLookupQuery());
-        return ResponseHelper.GenerateResponse(data);
-    }
-
-    [AllowAnonymous]
-    [HttpGet("marital-status/lookup")]
-    public async Task<ActionResult> GetMaritalStatus()
-    {
-        var data = await _mediator.Send(new GetMaritalStatusLookupQuery());
         return ResponseHelper.GenerateResponse(data);
     }
 }

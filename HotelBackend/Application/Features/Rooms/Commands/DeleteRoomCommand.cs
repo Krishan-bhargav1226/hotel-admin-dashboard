@@ -10,10 +10,12 @@ namespace Application.Features.Rooms.Commands;
 public class DeleteRoomCommand : IRequest<Result<string>>
 {
     public int Id { get; set; }
+    public int? PropertyId { get; set; }
 
-    public DeleteRoomCommand(int id)
+    public DeleteRoomCommand(int id, int? propertyId = null)
     {
         Id = id;
+        PropertyId = propertyId;
     }
 }
 
@@ -34,11 +36,12 @@ internal class DeleteRoomCommandHandler : IRequestHandler<DeleteRoomCommand, Res
         if (userOrg.OrganizationId == null)
             return Result<string>.BadRequest("Organization not found.");
 
-        var exists = await _unitOfWork.Repository<Room>().Entities
-            .AnyAsync(x => x.Id == request.Id, cancellationToken);
-        if (!exists)
+        var room = await _unitOfWork.Repository<Room>().Entities
+            .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
+        if (room == null)
             return Result<string>.BadRequest("Room does not exist.");
 
+        request.PropertyId = room.PropertyId;
         await _unitOfWork.Repository<Room>().DeleteAsync(request.Id);
         await _unitOfWork.Save(cancellationToken);
         return Result<string>.Success("Room deleted successfully.");

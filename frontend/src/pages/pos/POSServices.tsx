@@ -91,8 +91,10 @@ export default function POSServices() {
   };
 
   const handleMarkDelivered = async (order: ServiceOrder) => {
-    await updateOrderStatus({ id: order.id, status: "DELIVERED" });
-    toast.success(`Order ${order.orderNo} marked as Delivered!`);
+    try {
+      await updateOrderStatus({ id: order.id, status: "DELIVERED" }).unwrap();
+      toast.success(`Order ${order.orderNo} marked as Delivered!`);
+    } catch (error) { toast.error(getErrorMessage(error)); }
   };
 
   const handleDeleteMenuItem = async (item: IMenuItem) => {

@@ -1,7 +1,9 @@
 using Application.Features.Properties.Commands;
 using Application.Features.Properties.Queries;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace WebApi.Controllers.Properties;
 
@@ -16,6 +18,16 @@ public class PropertyController : ControllerBase
         _mediator = mediator;
     }
 
+    [Authorize(Roles = "SuperAdmin")]
+    [EnableRateLimiting("auth")]
+    [HttpPost("venue-admin/otp")]
+    public async Task<ActionResult> SendVenueAdminOtp(SendVenueAdminOtpCommand command)
+    {
+        var data = await _mediator.Send(command);
+        return ResponseHelper.GenerateResponse(data);
+    }
+
+    [Authorize(Roles = "SuperAdmin")]
     [HttpPost]
     public async Task<ActionResult> Create(CreatePropertyCommand command)
     {
@@ -30,6 +42,7 @@ public class PropertyController : ControllerBase
         return ResponseHelper.GenerateResponse(data);
     }
 
+    [Authorize(Roles = "SuperAdmin")]
     [HttpDelete("{id:int}")]
     public async Task<ActionResult> Delete(int id)
     {

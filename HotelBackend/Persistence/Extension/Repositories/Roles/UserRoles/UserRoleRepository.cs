@@ -33,17 +33,39 @@ public class UserRoleRepository : IUserRoleRepository
     {
         await DeleteExistingUserRoles(userId);
 
-        foreach (var roleId in roles.Distinct())
+        foreach (var roleIdentifier in roles.Distinct())
         {
+            if (string.IsNullOrWhiteSpace(roleIdentifier)) continue;
+
+            var role = await _context.Roles.FirstOrDefaultAsync(r => 
+                r.Id == roleIdentifier || 
+                r.Name.ToLower() == roleIdentifier.ToLower());
+
+            if (role == null)
+            {
+                var organizationId = await _context.Users
+                    .Where(x => x.Id == userId)
+                    .Select(x => x.OrganizationId)
+                    .FirstOrDefaultAsync();
+
+                role = new Role
+                {
+                    Name = roleIdentifier,
+                    OrganizationId = organizationId == 0 ? 1 : organizationId
+                };
+                await _context.Roles.AddAsync(role);
+                await _context.SaveChangesAsync();
+            }
+
             var data = new UserRole
             {
                 UserId = userId,
-                RoleId = roleId,
+                RoleId = role.Id,
             };
 
             await _context.UserRoles.AddAsync(data);
-            await _context.SaveChangesAsync();
         }
+        await _context.SaveChangesAsync();
     }
     private async Task DeleteExistingUserRoles(string userId)
     {
@@ -56,7 +78,7 @@ public class UserRoleRepository : IUserRoleRepository
     public async Task<List<Role>> GetUserRole(string userId)
     {
         return await _context.UserRoles.Where(x => x.UserId == userId)
-                                          .Include(x => x.Role).ThenInclude(x => x.RoleMenus).ThenInclude(x => x.Menu).ThenInclude(x => x.MenuType)
+                                          .Include(x => x.Role)
                                           .Select(x => x.Role)
                                           .ToListAsync();
     }

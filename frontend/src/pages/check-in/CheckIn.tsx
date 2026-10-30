@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import MainContainer from "../../components/ui/container/MainContainer";
 import PageTitle from "../../components/ui/container/PageTitle";
 import { useCheckInMutation } from "../../store/services/stay/staySlice";
+import { useGetReservationsQuery } from "../../store/services/reservation/reservationSlice";
 import { useGetRoomsQuery } from "../../store/services/room/roomSlice";
 import { useGetRoomTypesQuery } from "../../store/services/room-type/roomTypeSlice";
 import { useGetRatePlansQuery } from "../../store/services/rate-plan/ratePlanSlice";
@@ -23,11 +24,26 @@ export default function CheckIn() {
   const requestedRoom = params.get("room") ?? "";
   const [checkIn, { isLoading }] = useCheckInMutation();
   const { data: rooms = [] } = useGetRoomsQuery();
+  const { data: reservations = [] } = useGetReservationsQuery();
   const { data: roomTypes = [] } = useGetRoomTypesQuery();
   const { data: plans = [] } = useGetRatePlansQuery();
   const { data: settings } = useGetSettingsQuery();
 
-  const availableRooms = useMemo(() => rooms.filter((room) => room.status === "AVAILABLE"), [rooms]);
+  const availableRooms = useMemo(() => {
+    const today = dayjs().format("YYYY-MM-DD");
+    const blockedRoomIds = new Set(
+      reservations
+        .filter(
+          (reservation) =>
+            reservation.status === "CONFIRMED" &&
+            reservation.roomId &&
+            reservation.checkInDate <= today &&
+            reservation.checkOutDate > today,
+        )
+        .map((reservation) => reservation.roomId as string),
+    );
+    return rooms.filter((room) => room.status === "AVAILABLE" && !blockedRoomIds.has(room.id));
+  }, [rooms, reservations]);
 
   const initialValues = useMemo<CheckInFormValues>(
     () => ({

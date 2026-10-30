@@ -6,7 +6,7 @@ using Domain.Entities.LostItems;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Shared;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 
 namespace Application.Features.LostItems.Queries;
 

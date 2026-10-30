@@ -28,12 +28,15 @@ export default function Expenses() {
   const [form, setForm] = useState<ExpenseFormValues>(createEmptyForm);
   const { rangeExpenses, stats, dailyCashFlowData, categoryData, paymentModeData, topVendorsData } = useExpenseDashboardData(expenses, stays, timeRange);
 
-  const filteredExpenses = useMemo(() => rangeExpenses.filter((expense) => {
-    const matchesCategory = filterCategory === "ALL" || expense.category === filterCategory;
-    const query = searchQuery.toLowerCase();
-    const matchesSearch = expense.title.toLowerCase().includes(query) || (expense.paidTo && expense.paidTo.toLowerCase().includes(query)) || (expense.notes && expense.notes.toLowerCase().includes(query));
-    return matchesCategory && matchesSearch;
-  }), [rangeExpenses, filterCategory, searchQuery]);
+  const filteredExpenses = useMemo(() => {
+    const source = searchQuery.trim() ? expenses : rangeExpenses;
+    return source.filter((expense) => {
+      const matchesCategory = filterCategory === "ALL" || expense.category === filterCategory;
+      const query = searchQuery.toLowerCase();
+      const matchesSearch = expense.title.toLowerCase().includes(query) || (expense.paidTo && expense.paidTo.toLowerCase().includes(query)) || (expense.notes && expense.notes.toLowerCase().includes(query));
+      return matchesCategory && matchesSearch;
+    });
+  }, [expenses, rangeExpenses, filterCategory, searchQuery]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();

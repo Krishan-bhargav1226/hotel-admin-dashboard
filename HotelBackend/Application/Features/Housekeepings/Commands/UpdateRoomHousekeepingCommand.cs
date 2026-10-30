@@ -1,5 +1,5 @@
 using Application.Interfaces.UnitOfWorkRepositories;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 using Domain.Entities.Housekeepings;
 using Domain.Entities.Rooms;
 using MediatR;
@@ -15,6 +15,7 @@ public class UpdateRoomHousekeepingCommand : IRequest<Result<string>>
     public TaskPriority Priority { get; set; }
     public string? AssignedTo { get; set; }
     public string? Notes { get; set; }
+    public int? PropertyId { get; set; }
 }
 
 internal class UpdateRoomHousekeepingCommandHandler : IRequestHandler<UpdateRoomHousekeepingCommand, Result<string>>
@@ -34,12 +35,20 @@ internal class UpdateRoomHousekeepingCommandHandler : IRequestHandler<UpdateRoom
         if (room == null)
             return Result<string>.BadRequest("Room does not exist.");
 
+        request.PropertyId = room.PropertyId;
+
         var task = await _unitOfWork.Repository<HousekeepingTask>().Entities
             .Where(item => item.RoomId == request.RoomId && !item.IsDeleted)
             .OrderByDescending(item => item.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
-        var priority = request.Priority == 0 ? TaskPriority.NORMAL : request.Priority;
+        var priority = request.Priority == 0
+            ? (task == null || (int)task.Priority == 0 ? TaskPriority.NORMAL : task.Priority)
+            : request.Priority;
+        var assignedTo = request.AssignedTo == null
+            ? task?.AssignedTo
+            : string.IsNullOrWhiteSpace(request.AssignedTo) ? null : request.AssignedTo;
+        var notes = request.Notes == null ? task?.Notes : request.Notes;
         if (task == null)
         {
             task = new HousekeepingTask
@@ -49,8 +58,8 @@ internal class UpdateRoomHousekeepingCommandHandler : IRequestHandler<UpdateRoom
                 RoomTypeName = room.RoomType?.Name ?? string.Empty,
                 Status = request.Status,
                 Priority = priority,
-                AssignedTo = request.AssignedTo,
-                Notes = request.Notes,
+                AssignedTo = assignedTo,
+                Notes = notes,
                 IsActive = true,
                 LastCleanedAt = request.Status == HousekeepingStatus.CLEAN_INSPECTED ? DateTime.UtcNow : null
             };
@@ -60,8 +69,8 @@ internal class UpdateRoomHousekeepingCommandHandler : IRequestHandler<UpdateRoom
         {
             task.Status = request.Status;
             task.Priority = priority;
-            task.AssignedTo = request.AssignedTo;
-            task.Notes = request.Notes;
+            task.AssignedTo = assignedTo;
+            task.Notes = notes;
             task.RoomNumber = room.Number;
             task.RoomTypeName = room.RoomType?.Name ?? task.RoomTypeName;
             if (request.Status == HousekeepingStatus.CLEAN_INSPECTED)

@@ -22,42 +22,39 @@ public class UserIdAndOrganizationIdRepository : IUserIdAndOrganizationIdReposit
     public async Task<GetUserIdAndOrganizationIdDto> Get()
     {
         var httpContext = _httpContextAccessor.HttpContext;
-
         if (httpContext == null)
-        {
             throw new InvalidOperationException("HTTP context is not available.");
-        }
 
         var result = new GetUserIdAndOrganizationIdDto
         {
             OrganizationId = 1
         };
 
-        var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? httpContext.User.FindFirst("id")?.Value;
 
         if (!string.IsNullOrEmpty(userId))
         {
             result.UserId = userId;
 
-            result.IsAdmin = await _userManager.Users
-                .Where(x => x.Id == userId && x.UserRoles.Any(x => x.Role.Name == "Admin"))
-                .AnyAsync();
+            var user = await _userManager.Users
+                .Include(x => x.UserRoles)
+                .ThenInclude(x => x.Role)
+                .FirstOrDefaultAsync(x => x.Id == userId);
 
-            result.IsSchool = await _userManager.Users
-                .Where(x => x.Id == userId && x.UserRoles.Any(x => x.Role.Name == "School"))
-                .AnyAsync();
-
-            result.UserOrganizationId = await _userManager.Users
-                .Where(x => x.Id == userId)
-                .Select(x => x.OrganizationId)
-                .FirstOrDefaultAsync();
-
+            if (user != null)
+            {
+                result.UserOrganizationId = user.OrganizationId;
+                result.OrganizationId = user.OrganizationId;
+                result.PropertyId = user.PropertyId;
+                result.IsSuperAdmin = user.UserRoles.Any(x => x.Role.Name == "SuperAdmin");
+                result.IsAdmin = result.IsSuperAdmin || user.UserRoles.Any(x => x.Role.Name == "Admin");
+            }
         }
 
-        if (httpContext.Request.Headers.TryGetValue("OrganizationId", out var organizationId))
-        {
-            result.OrganizationId = Convert.ToInt32(organizationId);
-        }
+        var claimOrganization = httpContext.User.FindFirst("OrganizationId")?.Value;
+        if (int.TryParse(claimOrganization, out var claimOrganizationId) && claimOrganizationId > 0)
+            result.OrganizationId = claimOrganizationId;
 
         return result;
     }

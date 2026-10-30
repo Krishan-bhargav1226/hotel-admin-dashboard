@@ -1,6 +1,6 @@
 using Application.Features.Reservations.Commands;
 using Application.Features.Reservations.Queries;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 

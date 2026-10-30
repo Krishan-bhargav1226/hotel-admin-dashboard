@@ -6,4 +6,5 @@ namespace Application.Interfaces.Repositories.Otps;
 public interface IOtpRepository
 {
     Task<OTP> GenerateAndAddOtpAsync(string userId, string forOtp, OtpSentOn otpSentOn, CancellationToken cancellationToken);
+    Task<OTP> GenerateForEmailAsync(string email, string forOtp, OtpSentOn otpSentOn, CancellationToken cancellationToken);
 }

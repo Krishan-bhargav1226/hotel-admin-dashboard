@@ -1,15 +1,15 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Image as ImageIcon, ZoomIn } from "lucide-react";
 import RoomGalleryModal from "./RoomGalleryModal";
 import type { Room, RoomType, RoomCategory } from "../../../utils/interfaces/Interface";
-import { getRoomMeta, getRoomPhoto } from "../../../utils/helper/roomImages";
+import { getFallbackRoomPhoto, getRoomMeta, getRoomPhoto, resolveRoomImageUrl } from "../../../utils/helper/roomImages";
 
 interface RoomPhotoProps {
   room?: Partial<Room> | null;
   roomType?: Partial<RoomType> | null;
   roomNumber?: string;
   roomTypeName?: string;
-  category?: RoomCategory;
+  category?: RoomCategory | "";
   image?: string;
   badge?: string;
   height?: string;
@@ -43,10 +43,31 @@ export const RoomPhoto: React.FC<RoomPhotoProps> = ({
   const [hasError, setHasError] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
 
-  const effectiveRoom = room || (roomNumber ? { number: roomNumber, image, badge, category } : undefined);
-  const effectiveRoomType = roomType || (roomTypeName ? { name: roomTypeName, category, badge } : undefined);
+  const effectiveCategory = category || room?.category || roomType?.category;
+  const effectiveRoom = room || (roomNumber ? { number: roomNumber, image, badge, category: effectiveCategory } : undefined);
+  const effectiveRoomType = roomType || (roomTypeName ? { name: roomTypeName, category: effectiveCategory, badge } : undefined);
 
-  const photoSrc = src || image || getRoomPhoto(effectiveRoom, effectiveRoomType);
+  const photoSrc = resolveRoomImageUrl(src || image || getRoomPhoto(effectiveRoom, effectiveRoomType), effectiveCategory);
+  const [currentSrc, setCurrentSrc] = useState(photoSrc);
+  const [attemptedFallback, setAttemptedFallback] = useState(false);
+
+  useEffect(() => {
+    setCurrentSrc(photoSrc);
+    setAttemptedFallback(false);
+    setHasError(false);
+    setIsLoaded(false);
+  }, [photoSrc]);
+
+  const handleImageError = () => {
+    if (!attemptedFallback) {
+      setAttemptedFallback(true);
+      setCurrentSrc(getFallbackRoomPhoto(effectiveCategory));
+    } else {
+      setHasError(true);
+    }
+  };
+
+  const missingPhoto = !currentSrc;
   const meta = getRoomMeta(effectiveRoom, effectiveRoomType);
   const title = alt || (roomNumber ? `Room ${roomNumber} - ${meta.name}` : room ? `Room ${room.number} - ${meta.name}` : meta.name);
 
@@ -87,25 +108,28 @@ export const RoomPhoto: React.FC<RoomPhotoProps> = ({
         aria-label={enableZoom ? `View photos of ${title}` : undefined}
       >
         {/* Shimmer Placeholder while loading */}
-        {!isLoaded && !hasError && (
+        {!missingPhoto && !isLoaded && !hasError && (
           <div className="absolute inset-0 bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 animate-pulse flex items-center justify-center">
             <ImageIcon className="text-slate-300 size-6" />
           </div>
         )}
 
         {/* Fallback if image fails to load */}
-        {hasError ? (
+        {missingPhoto || hasError ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100 p-2 text-center text-slate-400">
             <ImageIcon className="size-8 text-slate-300 mb-1" />
             <span className="text-[10px] font-medium text-slate-500">{title}</span>
           </div>
         ) : (
           <img
-            src={photoSrc}
+            src={currentSrc}
             alt={title}
             loading="lazy"
-            onLoad={() => setIsLoaded(true)}
-            onError={() => setHasError(true)}
+            onLoad={() => {
+              setIsLoaded(true);
+              setHasError(false);
+            }}
+            onError={handleImageError}
             className={`h-full w-full object-cover transition-transform duration-500 will-change-transform ${
               enableZoom ? "group-hover:scale-105" : ""
             } ${isLoaded ? "opacity-100" : "opacity-0"}`}
@@ -116,13 +140,13 @@ export const RoomPhoto: React.FC<RoomPhotoProps> = ({
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
 
         {/* Guest Suitability / Category Badge */}
-        {showBadge && (
+        {showBadge && meta.badge ? (
           <div className="absolute top-2 left-2 flex items-center gap-1.5 z-10">
             <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold shadow-xs backdrop-blur-md ${meta.badgeColor}`}>
               {meta.badge}
             </span>
           </div>
-        )}
+        ) : null}
 
         {/* Zoom Hint on Hover */}
         {enableZoom && (

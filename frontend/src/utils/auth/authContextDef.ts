@@ -7,6 +7,7 @@ export interface AuthContextValue {
   isAuthenticated: boolean;
   role: DeskRole;
   login: (credentials: LoginCredentials) => Promise<{ success: boolean; error?: string }>;
+  loginWithUser: (user: AuthUser, token?: string, rememberMe?: boolean) => Promise<void>;
   logout: () => void;
 }
 

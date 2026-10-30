@@ -19,9 +19,39 @@ export default function useHousekeepingData({ tasks, tickets, staff, rooms, rese
   const rushRoomIds = useMemo(() => {
     const today = dayjs().format("YYYY-MM-DD");
     const tomorrow = dayjs().add(1, "day").format("YYYY-MM-DD");
-    return new Set(reservations.filter((reservation) => reservation.roomId && [today, tomorrow].includes(dayjs(reservation.checkInDate).format("YYYY-MM-DD")) && reservation.status === "CONFIRMED").map((reservation) => reservation.roomId!));
+    return new Set(reservations.filter((reservation) => reservation.roomId && [today, tomorrow].includes(dayjs(reservation.checkInDate).format("YYYY-MM-DD")) && reservation.status === "CONFIRMED").map((reservation) => String(reservation.roomId!)));
   }, [reservations]);
-  const enrichedTasks = useMemo<EnrichedTask[]>(() => tasks.map((task) => ({ ...task, room: rooms.find((room) => room.id === task.roomId), isRush: rushRoomIds.has(task.roomId) || task.priority === "RUSH" })), [tasks, rooms, rushRoomIds]);
+  const enrichedTasks = useMemo<EnrichedTask[]>(() => {
+    const taskRoomIdSet = new Set(tasks.map((task) => String(task.roomId)));
+    const explicitTasks: EnrichedTask[] = tasks.map((task) => ({
+      ...task,
+      room: rooms.find((room) => String(room.id) === String(task.roomId)),
+      isRush: rushRoomIds.has(String(task.roomId)) || task.priority === "RUSH",
+    }));
+
+    const synthesizedTasks: EnrichedTask[] = rooms
+      .filter((room) => !taskRoomIdSet.has(String(room.id)))
+      .map((room) => {
+        let status: HousekeepingTask["status"] = "CLEAN_INSPECTED";
+        if (room.status === "CLEANING") status = "CLEANING";
+        else if (room.status === "MAINTENANCE") status = "OUT_OF_ORDER";
+        else if (room.status === "OCCUPIED") status = "DIRTY";
+
+        return {
+          id: `room-hk-${room.id}`,
+          roomId: String(room.id),
+          roomNumber: room.number,
+          roomTypeName: room.roomTypeId || "Room",
+          status,
+          priority: "NORMAL" as const,
+          updatedAt: room.updatedAt || new Date().toISOString(),
+          room,
+          isRush: rushRoomIds.has(String(room.id)),
+        };
+      });
+
+    return [...explicitTasks, ...synthesizedTasks];
+  }, [tasks, rooms, rushRoomIds]);
   const stats = useMemo(() => ({
     clean: enrichedTasks.filter((task) => task.status === "CLEAN_INSPECTED").length,
     cleaning: enrichedTasks.filter((task) => task.status === "CLEANING").length,

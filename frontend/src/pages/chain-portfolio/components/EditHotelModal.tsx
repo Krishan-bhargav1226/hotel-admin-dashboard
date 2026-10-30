@@ -32,13 +32,17 @@ export function EditHotelModal({ property, open, onClose, onSubmit, isLoading }:
     e.preventDefault();
     if (!form.name?.trim()) return toast.error("Hotel name cannot be empty");
 
+    const finiteOr = (value: unknown, fallback: number) => {
+      const number = Number(value);
+      return Number.isFinite(number) ? number : fallback;
+    };
     await onSubmit({
       ...property,
       ...form,
-      roomCount: Number(form.roomCount) || property.roomCount,
-      occupancyRate: typeof form.occupancyRate === "number" ? form.occupancyRate : property.occupancyRate,
-      adr: Number(form.adr) || property.adr,
-      dailyRevenue: Number(form.dailyRevenue) || property.dailyRevenue,
+      roomCount: finiteOr(form.roomCount, property.roomCount ?? 0),
+      occupancyRate: finiteOr(form.occupancyRate, property.occupancyRate ?? 0),
+      adr: finiteOr(form.adr, property.adr ?? 0),
+      dailyRevenue: finiteOr(form.dailyRevenue, property.dailyRevenue ?? 0),
     } as HotelProperty);
   };
 
@@ -91,37 +95,15 @@ export function EditHotelModal({ property, open, onClose, onSubmit, isLoading }:
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="font-semibold text-slate-700 dark:text-slate-300">City / Location</label>
-              <input
-                type="text"
-                name="location"
-                value={form.location || ""}
-                onChange={handleChange}
-                className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-3 dark:border-slate-700 dark:bg-slate-900"
-              />
-            </div>
-            <div>
-              <label className="font-semibold text-slate-700 dark:text-slate-300">Room Inventory (Keys)</label>
-              <input
-                type="number"
-                name="roomCount"
-                value={form.roomCount || 0}
-                onChange={handleChange}
-                className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-3 font-mono dark:border-slate-700 dark:bg-slate-900"
-              />
-            </div>
-            <div>
-              <label className="font-semibold text-slate-700 dark:text-slate-300">Average Rate (ADR ₹)</label>
-              <input
-                type="number"
-                name="adr"
-                value={form.adr || 5000}
-                onChange={handleChange}
-                className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-3 font-mono dark:border-slate-700 dark:bg-slate-900"
-              />
-            </div>
+          <div>
+            <label className="font-semibold text-slate-700 dark:text-slate-300">City / Location</label>
+            <input
+              type="text"
+              name="location"
+              value={form.location || ""}
+              onChange={handleChange}
+              className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-3 dark:border-slate-700 dark:bg-slate-900"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

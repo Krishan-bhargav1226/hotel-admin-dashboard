@@ -3,7 +3,7 @@ using Application.Features.Commons;
 using Application.Interfaces.Repositories.UserIdAndOrganizationIds;
 using Application.Interfaces.UnitOfWorkRepositories;
 using AutoMapper;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 using Domain.Entities.Shifts;
 using MediatR;
 using Microsoft.EntityFrameworkCore;

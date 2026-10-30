@@ -1,0 +1,49 @@
+@base = http://localhost:7444
+@token = replace-with-jwt
+
+### Live health
+GET {{base}}/health/live
+
+### Ready health
+GET {{base}}/health/ready
+
+### Login
+POST {{base}}/api/user/login
+Content-Type: application/json
+
+{
+  "code": "admin@hotel.local",
+  "password": "replace-me"
+}
+
+### Current user
+GET {{base}}/api/user/current
+Authorization: Bearer {{token}}
+
+### Rooms
+GET {{base}}/api/room
+Authorization: Bearer {{token}}
+
+### Guests
+GET {{base}}/api/guest
+Authorization: Bearer {{token}}
+
+### Stays
+GET {{base}}/api/stay
+Authorization: Bearer {{token}}
+
+### Reservations
+GET {{base}}/api/reservation
+Authorization: Bearer {{token}}
+
+### Properties
+GET {{base}}/api/property
+Authorization: Bearer {{token}}
+
+### Settings
+GET {{base}}/api/settings
+Authorization: Bearer {{token}}
+
+### Reports
+GET {{base}}/api/report/summary
+Authorization: Bearer {{token}}

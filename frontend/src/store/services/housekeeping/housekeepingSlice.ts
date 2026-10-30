@@ -1,19 +1,9 @@
-import { hotelApi, run } from "../baseQuery";
-import {
-  DbKeys,
-  readList,
-  runExclusive,
-  writeList,
-} from "../../../utils/db/localDb";
-import { uid } from "../../../utils/helper/helper";
+import { hotelApi } from "../baseQuery";
 import type {
   HousekeepingStatus,
   HousekeepingTask,
   MaintenancePriority,
-  MaintenanceStatus,
   MaintenanceTicket,
-  Room,
-  RoomType,
 } from "../../../utils/interfaces/Interface";
 
 export interface CreateMaintenancePayload {
@@ -26,206 +16,147 @@ export interface CreateMaintenancePayload {
   cost?: number;
 }
 
+const mapBackendHousekeeping = (item: any): HousekeepingTask => ({
+  id: String(item.id),
+  roomId: String(item.roomId),
+  roomNumber: item.roomNumber,
+  roomTypeName: item.roomTypeName || "Standard",
+  status: item.status || "CLEAN_INSPECTED",
+  assignedTo: item.assignedTo ?? undefined,
+  priority: item.priority || "NORMAL",
+  notes: item.notes ?? undefined,
+  lastCleanedAt: item.lastCleanedAt ?? undefined,
+  updatedAt: item.updatedDate || item.createdDate || new Date().toISOString(),
+});
+
 const housekeepingApi = hotelApi.injectEndpoints({
   endpoints: (builder) => ({
     getHousekeepingTasks: builder.query<HousekeepingTask[], void>({
-      queryFn: () =>
-        run(async () => {
-          const rooms = await readList<Room>(DbKeys.ROOMS);
-          const types = await readList<RoomType>(DbKeys.ROOM_TYPES);
-          const tasks = await readList<HousekeepingTask>(DbKeys.HOUSEKEEPING);
-          const taskMap = new Map(tasks.map((t) => [t.roomId, t]));
-
-          // Synthesize tasks for all rooms so every room has a task status
-          const merged: HousekeepingTask[] = rooms.map((r) => {
-            const existing = taskMap.get(r.id);
-            const type = types.find((t) => t.id === r.roomTypeId);
-            let status: HousekeepingStatus = "CLEAN_INSPECTED";
-            if (r.status === "CLEANING") status = "CLEANING";
-            else if (r.status === "MAINTENANCE") status = "OUT_OF_ORDER";
-            else if (existing?.status) status = existing.status;
-
-            return {
-              id: existing?.id || uid(),
-              roomId: r.id,
-              roomNumber: r.number,
-              roomTypeName: type?.name || "Standard",
-              status,
-              assignedTo: existing?.assignedTo,
-              priority: existing?.priority || "NORMAL",
-              notes: existing?.notes,
-              lastCleanedAt: existing?.lastCleanedAt,
-              updatedAt: existing?.updatedAt || r.updatedAt,
-            };
-          });
-
-          return merged.sort((a, b) =>
-            a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true })
-          );
-        }),
+      query: () => "/housekeeping",
+      transformResponse: (response: any) => {
+        const rawList = Array.isArray(response) ? response : (response?.data ?? []);
+        return rawList.map(mapBackendHousekeeping).sort((a: HousekeepingTask, b: HousekeepingTask) =>
+          a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true })
+        );
+      },
       providesTags: ["Housekeeping", "Room"],
     }),
 
     updateHousekeepingStatus: builder.mutation<
-      HousekeepingTask,
+      void,
       {
         roomId: string;
         status: HousekeepingStatus;
         assignedTo?: string;
         notes?: string;
+        priority?: HousekeepingTask["priority"];
       }
     >({
-      queryFn: ({ roomId, status, assignedTo, notes }) =>
-        run(() =>
-          runExclusive(async () => {
-            const rooms = await readList<Room>(DbKeys.ROOMS);
-            const types = await readList<RoomType>(DbKeys.ROOM_TYPES);
-            const tasks = await readList<HousekeepingTask>(DbKeys.HOUSEKEEPING);
-
-            const room = rooms.find((r) => r.id === roomId);
-            if (!room) throw new Error("Room not found");
-
-            const type = types.find((t) => t.id === room.roomTypeId);
-            const now = new Date().toISOString();
-
-            let task = tasks.find((t) => t.roomId === roomId);
-            if (!task) {
-              task = {
-                id: uid(),
-                roomId,
-                roomNumber: room.number,
-                roomTypeName: type?.name || "Standard",
-                status,
-                assignedTo,
-                priority: "NORMAL",
-                notes,
-                lastCleanedAt: status === "CLEAN_INSPECTED" ? now : undefined,
-                updatedAt: now,
-              };
-              tasks.push(task);
-            } else {
-              task.status = status;
-              if (assignedTo !== undefined) task.assignedTo = assignedTo;
-              if (notes !== undefined) task.notes = notes;
-              if (status === "CLEAN_INSPECTED") task.lastCleanedAt = now;
-              task.updatedAt = now;
-            }
-
-            // Sync with Room status
-            if (status === "CLEAN_INSPECTED") {
-              if (room.status === "CLEANING" || room.status === "MAINTENANCE") {
-                room.status = "AVAILABLE";
-                room.updatedAt = now;
-              }
-            } else if (status === "CLEANING") {
-              if (room.status !== "OCCUPIED") {
-                room.status = "CLEANING";
-                room.updatedAt = now;
-              }
-            } else if (status === "OUT_OF_ORDER") {
-              room.status = "MAINTENANCE";
-              room.updatedAt = now;
-            }
-
-            await writeList(DbKeys.HOUSEKEEPING, tasks);
-            await writeList(DbKeys.ROOMS, rooms);
-            return task;
-          })
-        ),
+      query: ({ roomId, status, assignedTo, notes, priority }) => {
+        const body: Record<string, unknown> = { status };
+        if (priority) body.priority = priority;
+        if (assignedTo !== undefined) body.assignedTo = assignedTo;
+        if (notes !== undefined) body.notes = notes;
+        return {
+          url: `/housekeeping/room/${roomId}`,
+          method: "PUT",
+          body,
+        };
+      },
       invalidatesTags: ["Housekeeping", "Room"],
     }),
 
-    /* Maintenance Tickets */
     getMaintenanceTickets: builder.query<MaintenanceTicket[], void>({
-      queryFn: () =>
-        run(async () => {
-          const tickets = await readList<MaintenanceTicket>(DbKeys.MAINTENANCE);
-          return tickets.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-        }),
-      providesTags: ["Maintenance"],
+      query: () => "/maintenance",
+      transformResponse: (response: any) => {
+        const rawList = Array.isArray(response) ? response : (response?.data ?? []);
+        return rawList.map((t: any) => ({
+          id: String(t.id),
+          ticketNo: t.ticketNo || `MT-${t.id}`,
+          roomId: String(t.roomId),
+          roomNumber: t.roomNumber || String(t.roomId),
+          title: t.title || "Maintenance task",
+          description: t.description || "",
+          priority: (t.priority || "MEDIUM") as MaintenancePriority,
+          status: (t.status || "OPEN") as MaintenanceTicket["status"],
+          reportedBy: t.reportedBy || "Staff",
+          assignedTo: t.assignedTo || undefined,
+          cost: Number(t.cost) || 0,
+          createdAt: t.createdDate || new Date().toISOString(),
+          resolvedAt: t.resolvedAt || undefined,
+        }));
+      },
+      providesTags: ["Maintenance", "Housekeeping", "Room"],
     }),
 
-    createMaintenanceTicket: builder.mutation<MaintenanceTicket, CreateMaintenancePayload>({
-      queryFn: (payload) =>
-        run(() =>
-          runExclusive(async () => {
-            const tickets = await readList<MaintenanceTicket>(DbKeys.MAINTENANCE);
-            const rooms = await readList<Room>(DbKeys.ROOMS);
-            const room = rooms.find((r) => r.id === payload.roomId);
-            if (!room) throw new Error("Room not found");
-
-            const now = new Date().toISOString();
-            const ticketNo = `MT-${String(tickets.length + 1).padStart(4, "0")}`;
-
-            const ticket: MaintenanceTicket = {
-              id: uid(),
-              ticketNo,
-              roomId: payload.roomId,
-              roomNumber: room.number,
-              title: payload.title.trim(),
-              description: payload.description.trim(),
-              priority: payload.priority,
-              status: "OPEN",
-              reportedBy: payload.reportedBy.trim(),
-              assignedTo: payload.assignedTo?.trim(),
-              cost: payload.cost || 0,
-              createdAt: now,
-            };
-
-            // If urgent/emergency, put room under maintenance
-            if (payload.priority === "EMERGENCY" || payload.priority === "HIGH") {
-              room.status = "MAINTENANCE";
-              room.updatedAt = now;
-              await writeList(DbKeys.ROOMS, rooms);
-            }
-
-            await writeList(DbKeys.MAINTENANCE, [ticket, ...tickets]);
-            return ticket;
-          })
-        ),
-      invalidatesTags: ["Maintenance", "Room", "Housekeeping"],
+    createMaintenanceTicket: builder.mutation<
+      MaintenanceTicket,
+      CreateMaintenancePayload
+    >({
+      query: (payload) => ({
+        url: "/maintenance",
+        method: "POST",
+        body: {
+          roomId: Number(payload.roomId),
+          title: payload.title.trim(),
+          description: payload.description?.trim() || null,
+          priority: payload.priority || "MEDIUM",
+          reportedBy: payload.reportedBy?.trim() || "Front Desk Staff",
+          assignedTo: payload.assignedTo?.trim() || null,
+          cost: Number(payload.cost) || 0,
+        },
+      }),
+      transformResponse: (res: any, _meta: any, arg: CreateMaintenancePayload): MaintenanceTicket => {
+        const createdId = typeof res === "number" ? res : res?.id;
+        const item = res && typeof res === "object" ? res : undefined;
+        return {
+          id: String(createdId ?? Date.now()),
+          ticketNo: item?.ticketNo ?? `MT-${Date.now().toString().slice(-4)}`,
+          roomId: arg.roomId,
+          roomNumber: item?.roomNumber ?? arg.roomId,
+          title: arg.title,
+          description: arg.description,
+          priority: arg.priority,
+          status: "OPEN",
+          reportedBy: arg.reportedBy,
+          assignedTo: arg.assignedTo,
+          cost: arg.cost,
+          createdAt: new Date().toISOString(),
+        };
+      },
+      invalidatesTags: ["Maintenance", "Housekeeping", "Room"],
     }),
 
     updateMaintenanceTicket: builder.mutation<
-      MaintenanceTicket,
-      {
-        id: string;
-        status?: MaintenanceStatus;
-        assignedTo?: string;
-        cost?: number;
-      }
+      void,
+      { id: string; status: MaintenanceTicket["status"] }
     >({
-      queryFn: ({ id, status, assignedTo, cost }) =>
-        run(() =>
-          runExclusive(async () => {
-            const tickets = await readList<MaintenanceTicket>(DbKeys.MAINTENANCE);
-            const ticket = tickets.find((t) => t.id === id);
-            if (!ticket) throw new Error("Ticket not found");
+      query: ({ id, status }) => ({
+        url: `/maintenance/${id}`,
+        method: "PUT",
+        body: { status },
+      }),
+      invalidatesTags: ["Maintenance", "Housekeeping", "Room"],
+    }),
 
-            const now = new Date().toISOString();
-            if (status) {
-              ticket.status = status;
-              if (status === "RESOLVED") {
-                ticket.resolvedAt = now;
+    updateMaintenanceStatus: builder.mutation<
+      void,
+      { id: string; status: MaintenanceTicket["status"] }
+    >({
+      query: ({ id, status }) => ({
+        url: `/maintenance/${id}`,
+        method: "PUT",
+        body: { status },
+      }),
+      invalidatesTags: ["Maintenance", "Housekeeping", "Room"],
+    }),
 
-                // Check if room can be made available
-                const rooms = await readList<Room>(DbKeys.ROOMS);
-                const room = rooms.find((r) => r.id === ticket.roomId);
-                if (room && room.status === "MAINTENANCE") {
-                  room.status = "AVAILABLE";
-                  room.updatedAt = now;
-                  await writeList(DbKeys.ROOMS, rooms);
-                }
-              }
-            }
-            if (assignedTo !== undefined) ticket.assignedTo = assignedTo;
-            if (cost !== undefined) ticket.cost = cost;
-
-            await writeList(DbKeys.MAINTENANCE, tickets);
-            return ticket;
-          })
-        ),
-      invalidatesTags: ["Maintenance", "Room", "Housekeeping"],
+    deleteMaintenanceTicket: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/maintenance/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Maintenance", "Housekeeping", "Room"],
     }),
   }),
 });
@@ -236,4 +167,8 @@ export const {
   useGetMaintenanceTicketsQuery,
   useCreateMaintenanceTicketMutation,
   useUpdateMaintenanceTicketMutation,
+  useUpdateMaintenanceStatusMutation,
+  useDeleteMaintenanceTicketMutation,
 } = housekeepingApi;
+
+export default housekeepingApi;

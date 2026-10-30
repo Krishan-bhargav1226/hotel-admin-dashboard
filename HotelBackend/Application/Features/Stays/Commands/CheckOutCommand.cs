@@ -1,6 +1,8 @@
 using Application.Common.Helpers;
+using Application.Dto.Stays;
 using Application.Interfaces.UnitOfWorkRepositories;
-using Domain.Entities.Hotels;
+using AutoMapper;
+using Domain.Common.Enums.Hotels;
 using Domain.Entities.Housekeepings;
 using Domain.Entities.RatePlans;
 using Domain.Entities.Rooms;
@@ -17,7 +19,7 @@ public class CheckOutCharge
     public decimal Amount { get; set; }
 }
 
-public class CheckOutCommand : IRequest<Result<int>>
+public class CheckOutCommand : IRequest<Result<GetStayDto>>
 {
     public int Id { get; set; }
     public DateTime? CheckOutAt { get; set; }
@@ -30,25 +32,27 @@ public class CheckOutCommand : IRequest<Result<int>>
     public bool AutoCleaning { get; set; } = true;
 }
 
-internal class CheckOutCommandHandler : IRequestHandler<CheckOutCommand, Result<int>>
+internal class CheckOutCommandHandler : IRequestHandler<CheckOutCommand, Result<GetStayDto>>
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IMapper _mapper;
 
-    public CheckOutCommandHandler(IUnitOfWork unitOfWork)
+    public CheckOutCommandHandler(IUnitOfWork unitOfWork, IMapper mapper)
     {
         _unitOfWork = unitOfWork;
+        _mapper = mapper;
     }
 
-    public async Task<Result<int>> Handle(CheckOutCommand request, CancellationToken cancellationToken)
+    public async Task<Result<GetStayDto>> Handle(CheckOutCommand request, CancellationToken cancellationToken)
     {
         var stay = await _unitOfWork.Repository<Stay>().Entities
             .Include(x => x.StayRooms)
             .Include(x => x.Charges)
             .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
         if (stay == null)
-            return Result<int>.BadRequest("Stay does not exist.");
+            return Result<GetStayDto>.BadRequest("Stay does not exist.");
         if (stay.Status == StayStatus.COMPLETED)
-            return Result<int>.BadRequest("This stay has already been checked out.");
+            return Result<GetStayDto>.BadRequest("This stay has already been checked out.");
 
         if ((int)request.PaymentMode == 0)
             request.PaymentMode = PaymentMode.CASH;
@@ -57,7 +61,7 @@ internal class CheckOutCommandHandler : IRequestHandler<CheckOutCommand, Result<
         {
             var plan = await _unitOfWork.Repository<RatePlan>().GetByID(request.RatePlanId.Value);
             if (plan == null)
-                return Result<int>.BadRequest("Rate plan does not exist.");
+                return Result<GetStayDto>.BadRequest("Rate plan does not exist.");
 
             stay.RatePlanId = plan.Id;
             stay.PlanName = plan.Name;
@@ -149,6 +153,11 @@ internal class CheckOutCommandHandler : IRequestHandler<CheckOutCommand, Result<
         }
 
         await _unitOfWork.Save(cancellationToken);
-        return Result<int>.Success(stay.Id, "Guest checked out successfully.");
+        var saved = await _unitOfWork.Repository<Stay>().Entities
+            .Include(x => x.Companions)
+            .Include(x => x.Charges)
+            .Include(x => x.StayRooms)
+            .FirstAsync(x => x.Id == stay.Id, cancellationToken);
+        return Result<GetStayDto>.Success(_mapper.Map<GetStayDto>(saved), "Guest checked out successfully.");
     }
 }

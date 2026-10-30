@@ -54,7 +54,7 @@ export default function Reservations() {
     checkInDate: dayjs().add(1, "day").format("YYYY-MM-DD"),
     checkOutDate: dayjs().add(3, "day").format("YYYY-MM-DD"),
     totalAmount: 0, advanceAmount: 0, paymentMode: "UPI" as PaymentMode,
-    source: "DIRECT" as BookingSource, specialRequests: "",
+    source: "PHONE" as BookingSource, specialRequests: "",
   });
 
   const nights = useMemo(() => Math.max(1, dayjs(form.checkOutDate).diff(dayjs(form.checkInDate), "day")), [form.checkInDate, form.checkOutDate]);
@@ -99,9 +99,31 @@ export default function Reservations() {
 
   const handleOpenCheckIn = (reservation: Reservation) => {
     setCheckInTarget(reservation);
-    const available = rooms.filter((room) => room.status === "AVAILABLE" && (reservation.roomId ? room.id === reservation.roomId : room.roomTypeId === reservation.roomTypeId));
-    setCheckInRoomId(available[0]?.id || rooms.find((room) => room.status === "AVAILABLE")?.id || "");
-    setCheckInPlanId(ratePlans[0]?.id || "");
+    const today = dayjs().format("YYYY-MM-DD");
+    const blockedRoomIds = new Set(
+      reservations
+        .filter(
+          (other) =>
+            other.id !== reservation.id &&
+            other.status === "CONFIRMED" &&
+            other.roomId &&
+            other.checkInDate <= today &&
+            other.checkOutDate > today,
+        )
+        .map((other) => other.roomId as string),
+    );
+    const selectable = rooms.filter((room) => room.status === "AVAILABLE" && !blockedRoomIds.has(room.id));
+    const preferred = selectable.filter((room) =>
+      reservation.roomId ? room.id === reservation.roomId : room.roomTypeId === reservation.roomTypeId,
+    );
+    const room = preferred[0] || selectable[0];
+    setCheckInRoomId(room?.id || "");
+    const applicablePlan = ratePlans.find(
+      (plan) =>
+        plan.isActive &&
+        (plan.roomTypeIds.length === 0 || (room && plan.roomTypeIds.includes(room.roomTypeId))),
+    );
+    setCheckInPlanId(applicablePlan?.id || "");
     setCheckInIdType("AADHAAR");
     setCheckInIdNumber("");
     setCheckInAddress("");
@@ -118,6 +140,10 @@ export default function Reservations() {
         idType: checkInIdType,
         idNumber: checkInIdNumber.trim(),
         address: checkInAddress.trim(),
+        guestName: checkInTarget.guestName,
+        guestPhone: checkInTarget.guestPhone,
+        advanceAmount: checkInTarget.advanceAmount,
+        advanceMode: checkInTarget.paymentMode,
       }).unwrap();
       toast.success(`Check-in complete for ${checkInTarget.guestName}! Room assigned: ${stay.roomNumber}`);
       setCheckInTarget(null);
@@ -160,7 +186,21 @@ export default function Reservations() {
       <ReservationSummary stats={stats} />
       {viewMode === "LIST" ? <ReservationListView reservations={filteredReservations} roomTypes={roomTypes} filterStatus={filterStatus} setFilterStatus={setFilterStatus} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onCheckIn={handleOpenCheckIn} onCancel={handleCancel} /> : <ReservationCalendar dates={calendarDates} rooms={rooms} roomTypes={roomTypes} reservations={reservations} onCheckIn={handleOpenCheckIn} onBook={handleCalendarBooking} />}
       <ReservationFormDialog open={openNewModal} onClose={() => setOpenNewModal(false)} onSubmit={handleCreateSubmit} form={form} setForm={setForm} nights={nights} roomTypes={roomTypes} rooms={rooms} guestFilter={bookingGuestFilter} setGuestFilter={setBookingGuestFilter} onDateChange={handleDateChange} onSelectRoomType={handleSelectRoomType} isCreating={isCreating} />
-      <CheckInDialog reservation={checkInTarget} onClose={() => setCheckInTarget(null)} onConfirm={handleConfirmCheckIn} rooms={rooms} roomTypes={roomTypes} ratePlans={ratePlans} roomId={checkInRoomId} setRoomId={setCheckInRoomId} planId={checkInPlanId} setPlanId={setCheckInPlanId} idType={checkInIdType} setIdType={setCheckInIdType} idNumber={checkInIdNumber} setIdNumber={setCheckInIdNumber} address={checkInAddress} setAddress={setCheckInAddress} isConverting={isConverting} />
+      <CheckInDialog reservation={checkInTarget} onClose={() => setCheckInTarget(null)} onConfirm={handleConfirmCheckIn} rooms={rooms} roomTypes={roomTypes} ratePlans={ratePlans} roomId={checkInRoomId} setRoomId={setCheckInRoomId} planId={checkInPlanId} setPlanId={setCheckInPlanId} idType={checkInIdType} setIdType={setCheckInIdType} idNumber={checkInIdNumber} setIdNumber={setCheckInIdNumber} address={checkInAddress} setAddress={setCheckInAddress} blockedRoomIds={checkInTarget ? [...roomsReservedByOthers(reservations, checkInTarget.id)] : []} isConverting={isConverting} />
     </MainContainer>
   );
+}
+
+function roomsReservedByOthers(reservations: Reservation[], exceptId: string) {
+  const today = dayjs().format("YYYY-MM-DD");
+  return reservations
+    .filter(
+      (other) =>
+        other.id !== exceptId &&
+        other.status === "CONFIRMED" &&
+        other.roomId &&
+        other.checkInDate <= today &&
+        other.checkOutDate > today,
+    )
+    .map((other) => other.roomId as string);
 }

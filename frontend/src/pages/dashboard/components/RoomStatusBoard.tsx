@@ -19,8 +19,6 @@ interface RoomStatusBoardProps {
   onFilter: (value: RoomBoardFilter) => void;
   isLoading: boolean;
   canManageProperty: boolean;
-  onLoadDemo: () => void;
-  loadingDemo: boolean;
   onAddRooms: () => void;
   now: number;
   onCheckIn: (room: Room) => void;
@@ -40,7 +38,7 @@ const FILTERS: { status: RoomBoardFilter; label: string; tone: string }[] = [
 ];
 
 export default function RoomStatusBoard(props: RoomStatusBoardProps) {
-  const { rooms, roomTypes, floors, activeByRoom, reservedByRoom, counts, departingCount = 0, filter, onFilter, isLoading, canManageProperty, onLoadDemo, loadingDemo, onAddRooms, now, onCheckIn, onOpenStay, onCheckOut, onOrderService, onSetStatus } = props;
+  const { rooms, roomTypes, floors, activeByRoom, reservedByRoom, counts, departingCount = 0, filter, onFilter, isLoading, canManageProperty, onAddRooms, now, onCheckIn, onOpenStay, onCheckOut, onOrderService, onSetStatus } = props;
   const [query, setQuery] = useState("");
   const needle = query.trim().toLowerCase();
   const visibleFloors = useMemo(() => floors.map(([floor, list]) => {
@@ -72,14 +70,30 @@ export default function RoomStatusBoard(props: RoomStatusBoardProps) {
       </div>
     </div>
     {isLoading && rooms.length === 0 && <div role="status" aria-label="Loading room status" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><span className="sr-only">Loading room status</span>{Array.from({ length: 4 }, (_, index) => <div key={index} className="overflow-hidden rounded-2xl border border-[var(--border)] p-3"><Skeleton className="aspect-[16/8] w-full rounded-xl" /><Skeleton className="mt-4 h-4 w-2/3" /><Skeleton className="mt-2 h-3 w-1/2" /><Skeleton className="mt-5 h-9 w-full rounded-lg" /></div>)}</div>}
-    {!isLoading && rooms.length === 0 && <div className="mx-auto max-w-lg py-12 text-center sm:py-16"><div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-700"><BedDouble className="size-5" aria-hidden="true" /></div><h3 className="text-base font-semibold text-slate-900">Add your first room</h3><p className="mb-5 mt-1 text-sm leading-6 text-slate-600">{canManageProperty ? "Set up your room inventory to start tracking arrivals, stays, and housekeeping." : "Ask a manager to add rooms before you can check guests in."}</p>{canManageProperty ? <div className="flex flex-wrap items-center justify-center gap-2"><UISubmitButton type="button" text="Load sample data" loading={loadingDemo} onClick={onLoadDemo} /><UISubmitButton type="button" variant="outlined" text="Add rooms" onClick={onAddRooms} /></div> : null}</div>}
+    {!isLoading && rooms.length === 0 && <div className="mx-auto max-w-lg py-12 text-center sm:py-16"><div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-700"><BedDouble className="size-5" aria-hidden="true" /></div><h3 className="text-base font-semibold text-slate-900">Add your first room</h3><p className="mb-5 mt-1 text-sm leading-6 text-slate-600">{canManageProperty ? "Set up your room inventory to start tracking arrivals, stays, and housekeeping." : "Ask a manager to add rooms before you can check guests in."}</p>{canManageProperty ? <div className="flex flex-wrap items-center justify-center gap-2"><UISubmitButton type="button" text="Add rooms" onClick={onAddRooms} /></div> : null}</div>}
     {!isLoading && rooms.length > 0 && visibleFloors.length === 0 && <p className="py-10 text-center text-sm text-slate-500">No rooms match that search.</p>}
     {visibleFloors.map(([floor, roomsOnFloor]) => <div key={floor} className="mb-6 last:mb-0">
       <div className="mb-3 flex items-center gap-2"><span className="inline-block size-1.5 rounded-full bg-slate-400" /><span className="text-xs font-bold uppercase tracking-wider text-slate-700">{floor}</span><span className="text-[11px] font-medium text-slate-400">({roomsOnFloor.length} rooms)</span><div className="ml-2 h-px flex-1 bg-slate-100" /></div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
         {roomsOnFloor.map((room) => {
           const stay = activeByRoom.get(room.id);
-          return <RoomTile key={room.id} room={room} roomTypeName={roomTypes.find((type) => type.id === room.roomTypeId)?.name ?? "Standard"} stay={stay} reservation={reservedByRoom.get(room.id)} now={now} onCheckIn={() => onCheckIn(room)} onOpenStay={() => stay && onOpenStay(stay)} onCheckOut={() => stay && onCheckOut(stay)} onOrderService={onOrderService} onSetStatus={(status) => onSetStatus(room.id, status)} />;
+          const matchedType = roomTypes.find((type) => type.id === room.roomTypeId);
+          return (
+            <RoomTile
+              key={room.id}
+              room={room}
+              roomType={matchedType}
+              roomTypeName={matchedType?.name ?? "Standard"}
+              stay={stay}
+              reservation={reservedByRoom.get(room.id)}
+              now={now}
+              onCheckIn={() => onCheckIn(room)}
+              onOpenStay={() => stay && onOpenStay(stay)}
+              onCheckOut={() => stay && onCheckOut(stay)}
+              onOrderService={onOrderService}
+              onSetStatus={(status) => onSetStatus(room.id, status)}
+            />
+          );
         })}
       </div>
     </div>)}

@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { DeskRole } from "../access/deskRole";
 import type { AuthUser, LoginCredentials } from "./authTypes";
-import { authenticateMockUser, MOCK_ACCOUNTS } from "./mockUsers";
 import { AuthContext, type AuthContextValue } from "./authContextDef";
-import { setActiveHotelProperty } from "../db/localDb";
 
 const AUTH_STORAGE_KEY = "hotel_auth_session";
 
@@ -11,10 +9,7 @@ function readStoredUser(): AuthUser | null {
   try {
     const raw = localStorage.getItem(AUTH_STORAGE_KEY) ?? sessionStorage.getItem(AUTH_STORAGE_KEY);
     if (!raw) return null;
-
-    const stored = JSON.parse(raw) as AuthUser;
-    const account = MOCK_ACCOUNTS.find((candidate) => candidate.user.id === stored.id);
-    return account ? { ...account.user, lastLoginAt: stored.lastLoginAt } : null;
+    return JSON.parse(raw) as AuthUser;
   } catch {
     return null;
   }
@@ -49,31 +44,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user, rememberSession]);
 
-  const login = useCallback(
-    async ({ username, password, rememberMe = true }: LoginCredentials): Promise<{ success: boolean; error?: string }> => {
-      await new Promise((resolve) => setTimeout(resolve, 250));
-
-      const authenticatedUser = authenticateMockUser(username, password);
-      if (!authenticatedUser) {
-        return { success: false, error: "Invalid username or password." };
+  const loginWithUser = useCallback(
+    async (targetUser: AuthUser, token?: string, rememberMe: boolean = true): Promise<void> => {
+      if (token) {
+        localStorage.setItem("token", token);
+        localStorage.setItem("authToken", token);
       }
-
-      if (authenticatedUser.propertyId !== "ALL") {
-        await setActiveHotelProperty(authenticatedUser.propertyId);
-      }
-
       setRememberSession(rememberMe);
-      setUser(authenticatedUser);
-      return { success: true };
+      setUser({ ...targetUser, lastLoginAt: new Date().toISOString() });
     },
     [],
   );
 
-  const logout = useCallback(() => setUser(null), []);
+  const login = useCallback(
+    async (_credentials: LoginCredentials): Promise<{ success: boolean; error?: string }> => {
+      void _credentials;
+      return { success: false, error: "Sign in through the hotel account form." };
+    },
+    [],
+  );
+
+  const logout = useCallback(() => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("jwt");
+    setUser(null);
+  }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, isAuthenticated: Boolean(user), role, login, logout }),
-    [user, role, login, logout],
+    () => ({ user, isAuthenticated: Boolean(user), role, login, loginWithUser, logout }),
+    [user, role, login, loginWithUser, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

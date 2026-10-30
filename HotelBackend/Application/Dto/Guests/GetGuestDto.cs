@@ -1,5 +1,6 @@
 using Application.Common.Mappings.Commons;
 using Application.Dto.CommonDtos;
+using Application.Dto.Stays;
 using Domain.Entities.Guests;
 
 namespace Application.Dto.Guests;
@@ -14,4 +15,8 @@ public class GetGuestDto : BaseDto, IMapFrom<Guest>
     public bool IsFlagged { get; set; }
     public string? FlagReason { get; set; }
     public string? IdImage { get; set; }
+    public int Visits { get; set; }
+    public decimal TotalSpent { get; set; }
+    public DateTime? LastVisitAt { get; set; }
+    public List<GetStayDto> Stays { get; set; } = [];
 }

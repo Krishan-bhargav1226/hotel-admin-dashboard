@@ -1,8 +1,25 @@
 import { GUEST_LOOKUP_SCOPE, DEFAULT_HOTEL_ID } from "../utils/checkin/config";
 import type { CheckInPerson, RepeatGuestMatch } from "../pages/check-in/types";
-import { DbKeys, readImage, readList, saveImage } from "../utils/db/localDb";
-import type { Guest, Stay } from "../utils/interfaces/Interface";
 import { normalizeIdNumber } from "../utils/checkin/idValidators";
+import { API_BASE_URL } from "../store/services/baseQuery";
+
+const API_BASE = API_BASE_URL;
+
+const getAuthHeaders = (): HeadersInit => {
+  const token =
+    localStorage.getItem("token") ||
+    localStorage.getItem("authToken") ||
+    localStorage.getItem("jwt") ||
+    "";
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+const resolveImageUrl = (img?: string | null): string => {
+  if (!img) return "";
+  if (img.startsWith("data:") || img.startsWith("http://") || img.startsWith("https://")) return img;
+  const origin = API_BASE.replace(/\/api$/, "");
+  return `${origin}${img.startsWith("/") ? "" : "/"}${img}`;
+};
 
 export async function lookupGuestByPhone(
   phone: string,
@@ -12,64 +29,70 @@ export async function lookupGuestByPhone(
   if (normalizedPhone.length !== 10) return [];
 
   void scope;
-  // Guest records and ID documents stay in this browser for the demo.
-  const [guests, stays] = await Promise.all([
-    readList<Guest>(DbKeys.GUESTS),
-    readList<Stay>(DbKeys.STAYS),
-  ]);
 
-  const matched = guests.filter((g) => {
-    const p = normalizeIdNumber(g.phone).slice(-10);
-    return p === normalizedPhone;
-  });
+  try {
+    const [guestsRes, staysRes] = await Promise.all([
+      fetch(`${API_BASE}/guest?search=${encodeURIComponent(normalizedPhone)}`, {
+        headers: getAuthHeaders(),
+      }),
+      fetch(`${API_BASE}/stay`, {
+        headers: getAuthHeaders(),
+      }),
+    ]);
 
-  return Promise.all(
-    matched.map(async (guest) => {
-      const guestStays = stays.filter((s) => s.guestId === guest.id);
-      const sortedStays = [...guestStays].sort((a, b) => b.checkInAt.localeCompare(a.checkInAt));
+    const guestsJson = await guestsRes.json();
+    const staysJson = await staysRes.json();
+
+    const guestsList: any[] = Array.isArray(guestsJson) ? guestsJson : (guestsJson?.data ?? []);
+    const staysList: any[] = Array.isArray(staysJson) ? staysJson : (staysJson?.data ?? []);
+
+    const matched = guestsList.filter((g) => {
+      const p = normalizeIdNumber(g.phone || "").slice(-10);
+      return p === normalizedPhone;
+    });
+
+    return matched.map((guest) => {
+      const guestIdStr = String(guest.id);
+      const guestStays = staysList.filter((s) => String(s.guestId) === guestIdStr);
+      const sortedStays = [...guestStays].sort((a, b) =>
+        (b.checkInAt || "").localeCompare(a.checkInAt || "")
+      );
       const lastStay = sortedStays[0];
 
       let members: CheckInPerson[] = [];
 
-      // Check if stay had companions
-      if (lastStay && lastStay.companions && lastStay.companions.length > 0) {
+      if (lastStay && Array.isArray(lastStay.companions) && lastStay.companions.length > 0) {
         members = [
           {
             id: `p-${guest.id}`,
             fullName: guest.name,
-            idType: guest.idType || "AADHAAR",
+            idType: (guest.idType || "AADHAAR").toUpperCase(),
             idNumber: guest.idNumber || "",
             idDocumentId: guest.idImage || "",
-            idDocumentUrl: (guest.idImage?.startsWith("data:") ? guest.idImage : await readImage(guest.idImage)) || "",
+            idDocumentUrl: resolveImageUrl(guest.idImage),
             isPrimary: true,
             isExistingUploaded: Boolean(guest.idImage),
           },
-          ...lastStay.companions.map((c, i) => ({
+          ...lastStay.companions.map((c: any, i: number) => ({
             id: `c-${i}`,
             fullName: c.name,
-            idType: c.idType || "AADHAAR",
+            idType: (c.idType || "AADHAAR").toUpperCase(),
             idNumber: c.idNumber || "",
             idDocumentId: c.idImage || "",
-            idDocumentUrl: c.idImage,
+            idDocumentUrl: resolveImageUrl(c.idImage),
             isPrimary: false,
             isExistingUploaded: Boolean(c.idImage),
           })),
         ];
       } else {
-        const previewUrl = guest.idImage?.startsWith("data:")
-          ? guest.idImage
-          : guest.idImage
-            ? await readImage(guest.idImage)
-            : null;
-
         members = [
           {
             id: `p-${guest.id}`,
             fullName: guest.name,
-            idType: guest.idType || "AADHAAR",
+            idType: (guest.idType || "AADHAAR").toUpperCase(),
             idNumber: guest.idNumber || "",
             idDocumentId: guest.idImage || "",
-            idDocumentUrl: previewUrl || undefined,
+            idDocumentUrl: resolveImageUrl(guest.idImage),
             isPrimary: true,
             isExistingUploaded: Boolean(guest.idImage),
           },
@@ -77,19 +100,23 @@ export async function lookupGuestByPhone(
       }
 
       const guestType =
-        lastStay?.partyType || (members.length === 2 ? "COUPLE" : members.length > 2 ? "FAMILY" : "SOLO");
+        lastStay?.partyType ||
+        (members.length === 2 ? "COUPLE" : members.length > 2 ? "FAMILY" : "SOLO");
 
       return {
-        id: guest.id,
+        id: guestIdStr,
         hotelId: DEFAULT_HOTEL_ID,
         guestType,
         primaryPhone: guest.phone,
         visitCount: Math.max(1, guestStays.length),
-        lastVisitAt: lastStay?.checkInAt ?? guest.updatedAt ?? null,
+        lastVisitAt: lastStay?.checkInAt ?? guest.updatedDate ?? guest.createdDate ?? null,
         members,
       };
-    }),
-  );
+    });
+  } catch (err) {
+    console.error("Error looking up guest from backend API:", err);
+    return [];
+  }
 }
 
 export async function uploadIdDocument(file: File): Promise<{
@@ -99,29 +126,49 @@ export async function uploadIdDocument(file: File): Promise<{
   fileSizeBytes: number;
   previewUrl: string;
 }> {
-  // Store the selected document in IndexedDB and keep its preview in the browser.
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const dataUrl = reader.result as string;
-      const key = await saveImage(dataUrl);
-      resolve({
-        id: key,
-        fileName: file.name,
-        contentType: file.type || "image/jpeg",
-        fileSizeBytes: file.size,
-        previewUrl: dataUrl,
-      });
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    const res = await fetch(`${API_BASE}/fileupload`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const message = Array.isArray(body?.messages) ? body.messages.join(" ") : body?.detail;
+      throw new Error(message || `Upload failed with status ${res.status}`);
+    }
+
+    const data = await res.json();
+    const uploadedPath = (data?.data ?? data?.url ?? data ?? "").toString();
+    const previewUrl = resolveImageUrl(uploadedPath) || URL.createObjectURL(file);
+
+    return {
+      id: uploadedPath,
+      fileName: file.name,
+      contentType: file.type || "image/jpeg",
+      fileSizeBytes: file.size,
+      previewUrl,
     };
-    reader.onerror = () => reject(new Error("Failed to read file"));
-    reader.readAsDataURL(file);
-  });
+  } catch (err) {
+    if (err instanceof Error) throw err;
+    throw new Error("Failed to upload ID document. Please try again.");
+  }
 }
 
 export async function revealIdNumber(guestId: string, memberId: string): Promise<string> {
   void memberId;
-  // Read the guest from the local browser database.
-  const guests = await readList<Guest>(DbKeys.GUESTS);
-  const guest = guests.find((g) => g.id === guestId);
-  return guest?.idNumber || "•••• ••••";
+  try {
+    const res = await fetch(`${API_BASE}/guest/${guestId}`, {
+      headers: getAuthHeaders(),
+    });
+    const json = await res.json();
+    const guest = json?.data ?? json;
+    return guest?.idNumber || "•••• ••••";
+  } catch {
+    return "•••• ••••";
+  }
 }

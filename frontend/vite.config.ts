@@ -15,7 +15,7 @@ export default defineConfig({
           "vendor-charts": ["recharts"],
           "vendor-motion": ["framer-motion"],
           "vendor-icons": ["lucide-react", "react-icons"],
-          "vendor-utils": ["dayjs", "xlsx", "file-saver", "sweetalert2", "idb-keyval"],
+          "vendor-utils": ["dayjs", "xlsx", "file-saver", "sweetalert2"],
         },
       },
     },

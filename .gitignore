@@ -12,11 +12,21 @@ dist
 dist-ssr
 .vite
 *.local
+frontend/frontend/
+test-results/
+playwright-report/
 
 # Secrets
 .env
 .env.*
 !.env.example
+**/appsettings.Development.json
+**/appsettings.Production.json
+**/appsettings.*.local.json
+
+# Guest uploads and local media
+HotelBackend/WebApi/wwwroot/Documents/*
+!HotelBackend/WebApi/wwwroot/Documents/.gitkeep
 
 # Editor directories and files
 .vscode/*

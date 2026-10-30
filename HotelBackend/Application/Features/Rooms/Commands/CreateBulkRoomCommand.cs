@@ -1,7 +1,7 @@
 using Application.Features.Commons;
 using Application.Interfaces.Repositories.UserIdAndOrganizationIds;
 using Application.Interfaces.UnitOfWorkRepositories;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 using Domain.Entities.Properties;
 using Domain.Entities.Rooms;
 using Domain.Entities.RoomTypes;
@@ -45,6 +45,12 @@ internal class CreateBulkRoomCommandHandler : IRequestHandler<CreateBulkRoomComm
         if (request.To - request.From > 199)
             return Result<int>.BadRequest("Cannot add more than 200 rooms at once.");
 
+        var propertyId = await RoomHotel.ResolveAsync(_unitOfWork, userOrg.PropertyId, request.PropertyId, cancellationToken);
+        if (propertyId == null)
+            return Result<int>.BadRequest("Select the hotel these rooms belong to.");
+        request.PropertyId = propertyId;
+        await RoomHotel.ClaimUnassignedAsync(_unitOfWork, propertyId.Value, cancellationToken);
+
         await _validationManager.ValidateId<RoomType>(request.RoomTypeId);
         await _validationManager.ValidateId<HotelProperty>(request.PropertyId);
 
@@ -53,6 +59,7 @@ internal class CreateBulkRoomCommandHandler : IRequestHandler<CreateBulkRoomComm
             return Result<int>.BadRequest("Room type does not exist.");
 
         var existing = await _unitOfWork.Repository<Room>().Entities
+            .Where(x => x.PropertyId == request.PropertyId)
             .Select(x => x.Number.ToLower())
             .ToListAsync(cancellationToken);
 
@@ -88,7 +95,10 @@ internal class CreateBulkRoomCommandHandler : IRequestHandler<CreateBulkRoomComm
         }
 
         if (added == 0)
+        {
+            await _unitOfWork.Save(cancellationToken);
             return Result<int>.BadRequest("Every room number in this range already exists.");
+        }
 
         await _unitOfWork.Save(cancellationToken);
         return Result<int>.Success(added, $"{added} rooms created successfully.");

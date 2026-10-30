@@ -14,7 +14,7 @@ interface NewGuestFlowProps {
 }
 
 export default function NewGuestFlow({ onSwitchToRepeatWithPhone }: NewGuestFlowProps) {
-  const { values, setFieldValue, setValues } = useFormikContext<CheckInFormValues>();
+  const { values, setFieldValue, setFormikState } = useFormikContext<CheckInFormValues>();
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
 
   // Check if entered phone already exists in this hotel
@@ -39,13 +39,18 @@ export default function NewGuestFlow({ onSwitchToRepeatWithPhone }: NewGuestFlow
   }, [values.phone]);
 
   const handlePartyTypeSelect = (partyType: PartyType) => {
-    const updatedMembers = syncMembersForPartyType(partyType, values.members);
-    setValues({
-      ...values,
-      customerType: "NEW",
-      partyType,
-      guestCount: updatedMembers.length,
-      members: updatedMembers,
+    setFormikState((state) => {
+      const updatedMembers = syncMembersForPartyType(partyType, state.values.members);
+      return {
+        ...state,
+        values: {
+          ...state.values,
+          customerType: "NEW",
+          partyType,
+          guestCount: updatedMembers.length,
+          members: updatedMembers,
+        },
+      };
     });
   };
 
@@ -55,9 +60,19 @@ export default function NewGuestFlow({ onSwitchToRepeatWithPhone }: NewGuestFlow
   };
 
   const handleMemberChange = (index: number, field: keyof CheckInPerson, val: string | boolean | undefined) => {
-    const updated = [...values.members];
-    updated[index] = { ...updated[index], [field]: val };
-    void setFieldValue("members", updated);
+    patchMember(index, { [field]: val });
+  };
+
+  const patchMember = (index: number, patch: Partial<CheckInPerson>) => {
+    // Merge into the latest Formik state. setFieldValue snapshots the render
+    // that created this callback, so a second write in the same turn (or an
+    // upload that finishes after typing) would drop idDocumentId.
+    setFormikState((state) => {
+      const members = state.values.members.map((member, memberIndex) =>
+        memberIndex === index ? { ...member, ...patch } : member,
+      );
+      return { ...state, values: { ...state.values, members } };
+    });
   };
 
   const addFamilyAdult = () => {
@@ -68,21 +83,23 @@ export default function NewGuestFlow({ onSwitchToRepeatWithPhone }: NewGuestFlow
       idDocumentId: "",
       isPrimary: false,
     };
-    const nextMembers = [...values.members, newAdult];
-    setValues({
-      ...values,
-      members: nextMembers,
-      guestCount: nextMembers.length,
+    setFormikState((state) => {
+      const nextMembers = [...state.values.members, newAdult];
+      return {
+        ...state,
+        values: { ...state.values, members: nextMembers, guestCount: nextMembers.length },
+      };
     });
   };
 
   const removeMember = (index: number) => {
-    if (values.members.length <= 1) return;
-    const nextMembers = values.members.filter((_, i) => i !== index);
-    setValues({
-      ...values,
-      members: nextMembers,
-      guestCount: nextMembers.length,
+    setFormikState((state) => {
+      if (state.values.members.length <= 1) return state;
+      const nextMembers = state.values.members.filter((_, i) => i !== index);
+      return {
+        ...state,
+        values: { ...state.values, members: nextMembers, guestCount: nextMembers.length },
+      };
     });
   };
 
@@ -354,14 +371,18 @@ export default function NewGuestFlow({ onSwitchToRepeatWithPhone }: NewGuestFlow
                   fileName={member.idDocumentFileName}
                   required={true}
                   onUploaded={(doc) => {
-                    handleMemberChange(index, "idDocumentId", doc.id);
-                    handleMemberChange(index, "idDocumentUrl", doc.url);
-                    handleMemberChange(index, "idDocumentFileName", doc.fileName);
+                    patchMember(index, {
+                      idDocumentId: doc.id,
+                      idDocumentUrl: doc.url,
+                      idDocumentFileName: doc.fileName,
+                    });
                   }}
                   onRemove={() => {
-                    handleMemberChange(index, "idDocumentId", "");
-                    handleMemberChange(index, "idDocumentUrl", undefined);
-                    handleMemberChange(index, "idDocumentFileName", undefined);
+                    patchMember(index, {
+                      idDocumentId: "",
+                      idDocumentUrl: undefined,
+                      idDocumentFileName: undefined,
+                    });
                   }}
                 />
               </div>

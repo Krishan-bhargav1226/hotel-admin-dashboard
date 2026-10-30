@@ -1,33 +1,77 @@
-# Hotel Admin Dashboard Demo
+# Hotel operations platform
 
-Frontend-only hotel operations dashboard built with React, TypeScript, Vite, Redux Toolkit, MUI, and Tailwind.
+.NET 10 API and React desk for rooms, stays, reservations, and hotel settings.
 
-## Run locally
+## Layout
 
-```powershell
-cd frontend
-npm install
-npm run dev
+- `HotelBackend/Domain` entities and enums. Identity types stay here because users and roles extend ASP.NET Identity.
+- `HotelBackend/Application` MediatR use cases, DTOs, FluentValidation, and mapping.
+- `HotelBackend/Persistence` EF Core, repositories, and Identity storage.
+- `HotelBackend/Infrastructure` external services such as email and chat.
+- `HotelBackend/WebApi` HTTP controllers, health checks, and OpenAPI.
+- `frontend` React, TypeScript, and Redux Toolkit Query.
+
+## Prerequisites
+
+- .NET SDK 10
+- Node.js 22
+- PostgreSQL 16, or Docker Compose
+
+## Configure
+
+Copy `HotelBackend/WebApi/appsettings.example.json` to `HotelBackend/WebApi/appsettings.Development.json` and set:
+
+| Setting | Purpose |
+| --- | --- |
+| `ConnectionStrings:DefaultConnection` | Local Postgres connection |
+| `JwtSettings:SecretKey` | At least 32 bytes. Also accepted as `JwtSettings__SecretKey` |
+| `JwtSettings:Issuer` and `Audience` | Token issuer and audience |
+| `SeedAdmin:Email` and `SeedAdmin:Password` | Created once in Development when the user does not exist |
+| `Cors:Origins` | Browser origins allowed to call the API |
+| `EmailSettings` | SMTP credentials, only if mail is used |
+| `GeminiSettings:ApiKey` | Optional chat key |
+
+Copy `frontend/.env.example` to `frontend/.env`:
+
+```bash
+VITE_API_BASE_URL=http://localhost:7444/api
 ```
 
-Or run the existing root scripts with `npm run dev` and `npm run build`.
+Do not commit `appsettings.Development.json` or `.env`.
 
-## Demo access
+## Run
 
-All five demo accounts use the password `admin 123`:
+```bash
+dotnet run --project HotelBackend/WebApi
+cd frontend && npm ci && npm run dev
+```
 
-| Role | Username |
-| --- | --- |
-| Super admin · chain office | `superadmin` |
-| Hotel 1 admin · Jaipur | `hotel1admin` |
-| Hotel 1 front desk · Jaipur | `hotel1desk` |
-| Hotel 2 admin · Goa | `hotel2admin` |
-| Hotel 2 front desk · Goa | `hotel2desk` |
+The API listens on `http://localhost:7444`. Swagger is available in Development at `/swagger`. Liveness is `/health/live` and readiness is `/health/ready`.
 
-Super admin opens the combined hotel overview, with portfolio charts and filters. Hotel accounts open their own hotel desk.
+Migrations live in `HotelBackend/Persistence/Migrations`. The API uses the existing model. Apply them with:
 
-This is a static frontend demo: demo credentials are visible in the downloaded app, and data is stored only in this browser's IndexedDB. Do not use it to protect real hotel or guest data. Use **Settings → Backup & Export** to download or restore a local data backup.
+```bash
+dotnet ef database update --project HotelBackend/Persistence --startup-project HotelBackend/WebApi
+```
 
-## GitHub Pages
+## Test
 
-The `main` branch workflow builds `frontend` and publishes it to GitHub Pages. Set the repository's Pages source to **GitHub Actions** once in repository settings. The public site URL is `https://krishan-bhargav1226.github.io/hotel-admin-dashboard/`.
+```bash
+dotnet test HotelBackend/CleanSetupTemplate.slnx
+cd frontend && npm ci && npm run lint && npx tsc --noEmit -p tsconfig.app.json && npm run build
+cd frontend && npm run test:e2e
+```
+
+Integration tests read `HotelBackend/WebApi/appsettings.Development.json` when it is present so they can reach the local database. They do not create or drop tables.
+
+## Docker
+
+```bash
+docker compose up --build
+```
+
+The API is published on port 8080 and the frontend on port 5173. Change `SeedAdmin__Password` before sharing the stack.
+
+## Requests
+
+`HotelBackend/WebApi/hotel.http` lists the health checks and the main desk endpoints. Authenticated routes expect `Authorization: Bearer <token>` from `POST /api/user/login`.

@@ -1,6 +1,6 @@
 using Domain.Common;
 using Domain.Entities.Guests;
-using Domain.Entities.Hotels;
+using Domain.Common.Enums.Hotels;
 using Domain.Entities.RatePlans;
 using Domain.Entities.Rooms;
 using System.ComponentModel.DataAnnotations;

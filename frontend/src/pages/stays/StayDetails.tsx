@@ -101,7 +101,7 @@ const StayDetails = () => {
 
       <CheckoutDialog stay={checkoutOpen ? stay : null} onClose={() => setCheckoutOpen(false)} />
       <FolioModal open={folioOpen} onClose={() => setFolioOpen(false)} stay={stay} hotel={settings ?? null} />
-      <UpiQrModal open={upiOpen} onClose={() => setUpiOpen(false)} hotelName={settings?.hotelName || "Grand Horizon Hotel"} upiId={settings?.upiId || "grandhorizon@okaxis"} amount={currentPayable} stayNo={stay.stayNo} description={`Room ${stay.roomNumber} Bill`} />
+      <UpiQrModal open={upiOpen} onClose={() => setUpiOpen(false)} hotelName={settings?.hotelName || "Hotel"} upiId={settings?.upiId || ""} amount={currentPayable} stayNo={stay.stayNo} description={`Room ${stay.roomNumber} Bill`} />
       <RoomGalleryModal open={galleryOpen} onClose={() => setGalleryOpen(false)} roomNumber={stay.roomNumber} roomTypeName={stay.roomTypeName} category={room?.category || roomMeta.category} images={room?.images || roomMeta.gallery} bedConfig={room?.bedConfig || roomMeta.bedConfig} maxGuests={room?.maxGuests || roomMeta.maxGuests} sizeSqFt={room?.sizeSqFt || roomMeta.sizeSqFt} amenities={room?.amenities || roomMeta.amenities} />
     </MainContainer>
   );

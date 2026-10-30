@@ -42,7 +42,17 @@ export default function Housekeeping() {
   const { staffOptions, enrichedTasks, stats, filteredTasks, availableFloors } = useHousekeepingData({ tasks, tickets: maintenanceTickets, staff, rooms, reservations, filterFloor, filterStatus: filterCleanStatus, filterStaff });
 
   const handleStatusChange = async (roomId: string, status: HousekeepingStatus, assignedTo?: string) => {
-    try { await updateStatus({ roomId, status, assignedTo }).unwrap(); toast.success(`Room status updated to ${STATUS_CONFIG[status].label}`); }
+    const task = tasks.find((item) => item.roomId === roomId);
+    try {
+      await updateStatus({
+        roomId,
+        status,
+        assignedTo: assignedTo !== undefined ? assignedTo : task?.assignedTo,
+        notes: task?.notes,
+        priority: task?.priority,
+      }).unwrap();
+      toast.success(`Room status updated to ${STATUS_CONFIG[status].label}`);
+    }
     catch (error) { toast.error(getErrorMessage(error)); }
   };
 
@@ -56,7 +66,13 @@ export default function Housekeeping() {
     if (!inspectionModalTask) return;
     if (!Object.values(checklist).every(Boolean)) return toast.error("Please verify all 6 sanitization checklist items");
     try {
-      await updateStatus({ roomId: inspectionModalTask.roomId, status: "CLEAN_INSPECTED", notes: inspectorNotes || "Verified clean and sanitized" }).unwrap();
+      await updateStatus({
+        roomId: inspectionModalTask.roomId,
+        status: "CLEAN_INSPECTED",
+        assignedTo: inspectionModalTask.assignedTo,
+        notes: inspectorNotes || "Verified clean and sanitized",
+        priority: inspectionModalTask.priority,
+      }).unwrap();
       toast.success(`Room ${inspectionModalTask.roomNumber} certified clean and ready for guests!`);
       setInspectionModalTask(null);
     } catch (error) { toast.error(getErrorMessage(error)); }
@@ -74,12 +90,16 @@ export default function Housekeeping() {
   };
 
   const handleResolveTicket = async (ticket: (typeof maintenanceTickets)[number]) => {
-    await updateTicket({ id: ticket.id, status: "RESOLVED" });
-    toast.success(`Ticket ${ticket.ticketNo} marked resolved and room restored`);
+    try {
+      await updateTicket({ id: ticket.id, status: "RESOLVED" }).unwrap();
+      toast.success(`Ticket ${ticket.ticketNo} marked resolved and room restored`);
+    } catch (error) { toast.error(getErrorMessage(error)); }
   };
   const handleStartWork = async (ticket: (typeof maintenanceTickets)[number]) => {
-    await updateTicket({ id: ticket.id, status: "IN_PROGRESS" });
-    toast.success("Ticket set to In Progress");
+    try {
+      await updateTicket({ id: ticket.id, status: "IN_PROGRESS" }).unwrap();
+      toast.success("Ticket set to In Progress");
+    } catch (error) { toast.error(getErrorMessage(error)); }
   };
   const handleReportIssue = () => {
     const defaultStaff = staffOptions[0]?.name || "";

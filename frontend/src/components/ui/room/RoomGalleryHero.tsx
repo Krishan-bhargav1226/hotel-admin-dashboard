@@ -8,9 +8,13 @@ export default function RoomGalleryHero({ room, meta, gallery, title, activeInde
   const previous = () => onSelect(activeIndex === 0 ? gallery.length - 1 : activeIndex - 1);
   const next = () => onSelect(activeIndex === gallery.length - 1 ? 0 : activeIndex + 1);
   return <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-900 sm:aspect-[16/9]">
-    <img src={gallery[activeIndex]} alt={`${title} photo ${activeIndex + 1}`} className="h-full w-full object-cover transition-all duration-300" />
+    {gallery.length === 0 ? (
+      <div className="flex h-full items-center justify-center text-sm text-slate-300">No photo on file</div>
+    ) : (
+      <img src={gallery[activeIndex]} alt={`${title} photo ${activeIndex + 1}`} className="h-full w-full object-cover transition-all duration-300" />
+    )}
     <button type="button" onClick={onClose} className="absolute right-3 top-3 z-20 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-colors hover:bg-black/80" aria-label="Close photo preview"><X className="size-5" /></button>
-    <div className="absolute left-3 top-3 z-10 flex items-center gap-2"><span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold shadow-md backdrop-blur-md ${meta.badgeColor}`}>{meta.badge}</span>{room && <span className="inline-flex items-center rounded-full bg-black/60 px-2.5 py-1 font-mono text-xs font-bold text-white backdrop-blur-md">{room.floor}</span>}</div>
+    <div className="absolute left-3 top-3 z-10 flex items-center gap-2">{meta.badge ? <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold shadow-md backdrop-blur-md ${meta.badgeColor}`}>{meta.badge}</span> : null}{room?.floor ? <span className="inline-flex items-center rounded-full bg-black/60 px-2.5 py-1 font-mono text-xs font-bold text-white backdrop-blur-md">{room.floor}</span> : null}</div>
     {gallery.length > 1 && <>
       <button type="button" onClick={previous} className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-md transition-all hover:bg-black/80" aria-label="Previous photo"><ChevronLeft className="size-6" /></button>
       <button type="button" onClick={next} className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-md transition-all hover:bg-black/80" aria-label="Next photo"><ChevronRight className="size-6" /></button>

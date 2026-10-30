@@ -10,6 +10,11 @@
   <Folder Name="/Presentation/">
     <Project Path="WebApi/WebApi.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Application.Tests/Application.Tests.csproj" />
+    <Project Path="tests/Architecture.Tests/Architecture.Tests.csproj" />
+    <Project Path="tests/WebApi.Tests/WebApi.Tests.csproj" />
+  </Folder>
   <Folder Name="/Shared/">
     <Project Path="Shared/Shared.csproj" />
   </Folder>

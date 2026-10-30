@@ -19,15 +19,16 @@ export default function UpiQrModal({
   open,
   onClose,
   hotelName,
-  upiId = "hotel@upi",
+  upiId = "",
   amount,
   description = "Stay Bill Payment",
   stayNo,
 }: UpiQrModalProps) {
   const [copied, setCopied] = useState(false);
+  const payee = upiId.trim();
 
   // Generate UPI payment intent URI
-  const upiUri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(
+  const upiUri = `upi://pay?pa=${encodeURIComponent(payee)}&pn=${encodeURIComponent(
     hotelName
   )}&am=${amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(
     `${description} ${stayNo ? `(${stayNo})` : ""}`
@@ -48,6 +49,11 @@ export default function UpiQrModal({
   return (
     <UiDialog open={open} onClose={onClose} title="Instant UPI Payment QR" maxWidth="xs">
       <Box className="flex flex-col items-center p-3 text-center">
+        {!payee ? (
+          <Typography variant="body2" className="text-gray-500">
+            This hotel has no UPI ID in settings yet.
+          </Typography>
+        ) : null}
         <Typography variant="body2" className="text-gray-500">
           Scan with GPay, PhonePe, Paytm, or BHIM
         </Typography>

@@ -1,6 +1,4 @@
-import { hotelApi, run } from "../baseQuery";
-import { DbKeys, readList, runExclusive, writeList } from "../../../utils/db/localDb";
-import { uid } from "../../../utils/helper/helper";
+import { hotelApi } from "../baseQuery";
 import type { NightAuditRecord } from "../../../utils/interfaces/Interface";
 
 export interface RunNightAuditPayload {
@@ -25,37 +23,92 @@ export interface RunNightAuditPayload {
   notes?: string;
 }
 
+const mapBackendNightAudit = (item: any): NightAuditRecord => ({
+  id: String(item.id),
+  businessDate: item.businessDate,
+  auditTimestamp: item.auditTimestamp || new Date().toISOString(),
+  auditedBy: item.auditedBy || "",
+  totalRooms: Number(item.totalRooms) || 20,
+  occupiedRooms: Number(item.occupiedRooms) || 0,
+  occupancyRate: Number(item.occupancyRate) || 0,
+  roomRevenue: Number(item.roomRevenue) || 0,
+  posRevenue: Number(item.posRevenue) || 0,
+  servicesRevenue: Number(item.servicesRevenue) || 0,
+  totalRevenue: Number(item.totalRevenue) || 0,
+  adr: Number(item.adr) || 0,
+  revPar: Number(item.revPar) || 0,
+  totalGst: Number(item.totalGst) || 0,
+  settlements: {
+    cash: Number(item.cashSettlement) || 0,
+    upi: Number(item.upiSettlement) || 0,
+    card: Number(item.cardSettlement) || 0,
+    corporate: Number(item.corporateSettlement) || 0,
+  },
+  notes: item.notes ?? undefined,
+});
+
 const nightAuditApi = hotelApi.injectEndpoints({
   endpoints: (builder) => ({
     getNightAudits: builder.query<NightAuditRecord[], void>({
-      queryFn: () =>
-        run(async () => {
-          const list = await readList<NightAuditRecord>(DbKeys.NIGHT_AUDITS);
-          return list.sort((a, b) => b.businessDate.localeCompare(a.businessDate));
-        }),
+      query: () => "/night-audit",
+      transformResponse: (response: any) => {
+        const rawList = Array.isArray(response) ? response : (response?.data ?? []);
+        return rawList.map(mapBackendNightAudit).sort((a: NightAuditRecord, b: NightAuditRecord) =>
+          b.businessDate.localeCompare(a.businessDate)
+        );
+      },
       providesTags: ["NightAudit"],
     }),
 
     executeNightAudit: builder.mutation<NightAuditRecord, RunNightAuditPayload>({
-      queryFn: (payload) =>
-        run(() =>
-          runExclusive(async () => {
-            const list = await readList<NightAuditRecord>(DbKeys.NIGHT_AUDITS);
-            const now = new Date().toISOString();
-
-            const record: NightAuditRecord = {
-              ...payload,
-              id: `na-${payload.businessDate.replace(/-/g, "")}-${uid().slice(0, 4)}`,
-              auditTimestamp: now,
-            };
-
-            await writeList(DbKeys.NIGHT_AUDITS, [record, ...list]);
-            return record;
-          })
-        ),
-      invalidatesTags: ["NightAudit", "Stay", "Room", "Shift", "Expense"],
+      query: (payload) => ({
+        url: "/night-audit",
+        method: "POST",
+        body: {
+          businessDate: payload.businessDate,
+          auditedBy: payload.auditedBy,
+          totalRooms: Number(payload.totalRooms),
+          occupiedRooms: Number(payload.occupiedRooms),
+          occupancyRate: Number(payload.occupancyRate),
+          roomRevenue: Number(payload.roomRevenue),
+          posRevenue: Number(payload.posRevenue),
+          servicesRevenue: Number(payload.servicesRevenue),
+          totalRevenue: Number(payload.totalRevenue),
+          adr: Number(payload.adr),
+          revPar: Number(payload.revPar),
+          totalGst: Number(payload.totalGst),
+          settlements: payload.settlements,
+          notes: payload.notes || null,
+        },
+      }),
+      transformResponse: (res: any, _meta: any, arg: RunNightAuditPayload) => {
+        const id = typeof res === "number" || typeof res === "string" ? res : res?.id ?? res?.data;
+        return mapBackendNightAudit({
+          id,
+          businessDate: arg.businessDate,
+          auditedBy: arg.auditedBy,
+          totalRooms: arg.totalRooms,
+          occupiedRooms: arg.occupiedRooms,
+          occupancyRate: arg.occupancyRate,
+          roomRevenue: arg.roomRevenue,
+          posRevenue: arg.posRevenue,
+          servicesRevenue: arg.servicesRevenue,
+          totalRevenue: arg.totalRevenue,
+          adr: arg.adr,
+          revPar: arg.revPar,
+          totalGst: arg.totalGst,
+          cashSettlement: arg.settlements.cash,
+          upiSettlement: arg.settlements.upi,
+          cardSettlement: arg.settlements.card,
+          corporateSettlement: arg.settlements.corporate,
+          notes: arg.notes,
+          auditTimestamp: new Date().toISOString(),
+        });
+      },
+      invalidatesTags: ["NightAudit", "Stay", "Room", "Shift", "Expense", "Report"],
     }),
   }),
 });
 
 export const { useGetNightAuditsQuery, useExecuteNightAuditMutation } = nightAuditApi;
+export default nightAuditApi;

@@ -2,11 +2,13 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace WebApi.Controllers.UserLogins;
 
 [Route("api/user")]
 [ApiController]
+[EnableRateLimiting("auth")]
 public class UserLoginController : ControllerBase
 {
 
@@ -26,7 +28,6 @@ public class UserLoginController : ControllerBase
         return ResponseHelper.GenerateResponse(data);
     }
 
-    [AllowAnonymous]
     [Route("change-password")]
     [HttpPost]
     public async Task<ActionResult> ChangePassword(ChangePasswordCommand command)
@@ -54,6 +55,14 @@ public class UserLoginController : ControllerBase
     }
 
     [AllowAnonymous]
+    [HttpPost("resend-verification")]
+    public async Task<ActionResult> ResendVerification(ResendVerificationCommand command)
+    {
+        var data = await _mediator.Send(command);
+        return ResponseHelper.GenerateResponse(data);
+    }
+
+    [AllowAnonymous]
     [HttpPost("verify-otp")]
     public async Task<ActionResult> VerifyOtp(VerifyOtpCommand command)
     {
@@ -61,7 +70,7 @@ public class UserLoginController : ControllerBase
         return ResponseHelper.GenerateResponse(data);
     }
 
-    [AllowAnonymous]
+    [Authorize(Roles = "Admin,SuperAdmin")]
     [HttpPut("change-password/admin")]
     public async Task<ActionResult> ChangePasswordByAdmin(ChangePasswordByAdminCommand command)
     {

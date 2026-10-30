@@ -1,25 +1,12 @@
-import { hotelApi, run } from "../baseQuery";
-import {
-  DbKeys,
-  persistImage,
-  readList,
-  runExclusive,
-  writeList,
-} from "../../../utils/db/localDb";
-import { normalizePhone, uid } from "../../../utils/helper/helper";
-import { calculateBill, computeExpectedCheckOut } from "../../../utils/helper/billing";
+import { hotelApi } from "../baseQuery";
 import type {
   Companion,
   ExtraCharge,
-  Guest,
   PartyType,
   PaymentMode,
-  RatePlan,
-  Room,
-  RoomType,
   Stay,
+  StayStatus,
 } from "../../../utils/interfaces/Interface";
-import { billForStayRooms, stayRoomCount, stayRoomIds } from "../../../utils/helper/stayRooms";
 
 export interface CheckInPayload {
   guest: {
@@ -40,6 +27,7 @@ export interface CheckInPayload {
   advanceMode: PaymentMode;
   taxPercent: number;
   notes: string;
+  reservationId?: string;
 }
 
 export interface CheckOutPayload {
@@ -54,272 +42,228 @@ export interface CheckOutPayload {
   autoCleaning: boolean;
 }
 
-const newestFirst = (a: Stay, b: Stay) => b.checkInAt.localeCompare(a.checkInAt);
+const mapBackendStay = (item: any): Stay => {
+  const companions: Companion[] = (item.companions || []).map((c: any) => ({
+    id: String(c.id),
+    name: c.name || "",
+    idType: c.idType || "",
+    idNumber: c.idNumber || "",
+    idImage: c.idImage || "",
+  }));
 
-const nextStayNo = (stays: Stay[]) =>
-  `ST-${String(stays.length + 1).padStart(4, "0")}`;
+  const extraCharges: ExtraCharge[] = (item.extraCharges || []).map((ec: any) => ({
+    id: String(ec.id),
+    label: ec.label || "",
+    amount: Number(ec.amount) || 0,
+  }));
+
+  const roomIds: string[] =
+    item.roomIds && item.roomIds.length
+      ? item.roomIds.map(String)
+      : [String(item.roomId)];
+
+  return {
+    id: String(item.id),
+    stayNo: item.stayNo,
+    guestId: String(item.guestId),
+    guestName: item.guestName,
+    guestPhone: item.guestPhone,
+    guestIdType: item.guestIdType || "",
+    guestIdNumber: item.guestIdNumber || "",
+    guestIdImage: item.guestIdImage || "",
+    companions,
+    partyType: item.partyType,
+    guestCount: Number(item.guestCount) || 1,
+    roomId: String(item.roomId),
+    roomIds,
+    roomNumber: item.roomNumber,
+    roomTypeName: item.roomTypeName || "Standard",
+    plan: {
+      id: String(item.ratePlanId),
+      name: item.planName || "Overnight",
+      kind: item.planKind || "FIXED",
+      rate: Number(item.planRate) || 0,
+      durationHours: Number(item.planDurationHours) || 24,
+      checkoutTime: item.planCheckoutTime || "",
+      minHours: Number(item.planMinHours) || 0,
+      overtimeRate: Number(item.planOvertimeRate) || 0,
+      graceMinutes: Number(item.planGraceMinutes) || 30,
+      roomTypeIds: [],
+      isActive: true,
+      createdAt: item.createdDate || new Date().toISOString(),
+    },
+    checkInAt: item.checkInAt,
+    expectedCheckOutAt: item.expectedCheckOutAt ?? null,
+    checkOutAt: item.checkOutAt ?? null,
+    status: (item.status as StayStatus) || "ACTIVE",
+    advanceAmount: Number(item.advanceAmount) || 0,
+    advanceMode: item.advanceMode || "CASH",
+    extraCharges,
+    discount: Number(item.discount) || 0,
+    taxPercent: Number(item.taxPercent) || 12,
+    bill: item.bill
+      ? {
+          elapsedMinutes: item.bill.elapsedMinutes || 0,
+          billableHours: item.bill.billableHours || 0,
+          baseLabel: item.bill.baseLabel || "Base",
+          baseAmount: Number(item.bill.baseAmount) || 0,
+          overtimeHours: Number(item.bill.overtimeHours) || 0,
+          overtimeAmount: Number(item.bill.overtimeAmount) || 0,
+          extraTotal: Number(item.bill.extraTotal) || 0,
+          grossAmount: Number(item.bill.grossAmount) || 0,
+          discount: Number(item.bill.discount) || 0,
+          taxableAmount: Number(item.bill.taxableAmount) || 0,
+          taxPercent: Number(item.bill.taxPercent) || 12,
+          taxAmount: Number(item.bill.taxAmount) || 0,
+          total: Number(item.bill.total) || 0,
+        }
+      : null,
+    totalAmount: Number(item.totalAmount) || 0,
+    paidAmount: Number(item.paidAmount) || 0,
+    dueAmount: Number(item.dueAmount) || 0,
+    paymentMode: item.paymentMode ?? null,
+    notes: item.notes ?? "",
+    createdAt: item.createdDate || new Date().toISOString(),
+    updatedAt: item.updatedDate || item.createdDate || new Date().toISOString(),
+  };
+};
 
 const stayApi = hotelApi.injectEndpoints({
   endpoints: (builder) => ({
     getStays: builder.query<Stay[], void>({
-      queryFn: () => run(async () => (await readList<Stay>(DbKeys.STAYS)).sort(newestFirst)),
-      providesTags: ["Stay"],
+      query: () => "/stay",
+      transformResponse: (response: any) => {
+        const rawList = Array.isArray(response) ? response : (response?.data ?? []);
+        return rawList.map(mapBackendStay).sort((a: Stay, b: Stay) =>
+          b.checkInAt.localeCompare(a.checkInAt)
+        );
+      },
+      providesTags: ["Stay", "Room"],
     }),
+
     getStayById: builder.query<Stay | null, string>({
-      queryFn: (id) =>
-        run(async () => (await readList<Stay>(DbKeys.STAYS)).find((s) => s.id === id) ?? null),
+      query: (id) => `/stay/${id}`,
+      transformResponse: (response: any) => {
+        const item = response?.data ?? response;
+        return item ? mapBackendStay(item) : null;
+      },
       providesTags: ["Stay"],
     }),
 
-    /** Guest (new/repeat) + stay + room status — all in one safe step. */
     checkIn: builder.mutation<Stay, CheckInPayload>({
-      queryFn: (p) =>
-        run(() =>
-          runExclusive(async () => {
-            const [rooms, plans, types, guests, stays] = await Promise.all([
-              readList<Room>(DbKeys.ROOMS),
-              readList<RatePlan>(DbKeys.RATE_PLANS),
-              readList<RoomType>(DbKeys.ROOM_TYPES),
-              readList<Guest>(DbKeys.GUESTS),
-              readList<Stay>(DbKeys.STAYS),
-            ]);
-            const roomIds = [...new Set(p.roomIds.filter(Boolean))];
-            if (!roomIds.length) throw new Error("Room not found");
-            const selectedRooms = roomIds.map((id) => {
-              const room = rooms.find((r) => r.id === id);
-              if (!room) throw new Error("Room not found");
-              if (room.status !== "AVAILABLE") throw new Error(`Room ${room.number} is not currently available`);
-              return room;
-            });
-            const room = selectedRooms[0];
-            const plan = plans.find((x) => x.id === p.planId);
-            if (!plan) throw new Error("Rate plan not found");
-
-            const now = new Date().toISOString();
-            const phone = normalizePhone(p.guest.phone);
-            const idImage = await persistImage(p.guest.idImage);
-            const companions: Companion[] = [];
-            for (const c of p.companions) {
-              companions.push({ ...c, name: c.name.trim(), idImage: await persistImage(c.idImage) });
-            }
-
-            // Repeat guest -> update their record; new guest -> create.
-            let guest = guests.find((g) => g.phone === phone);
-            if (guest) {
-              guest = {
-                ...guest,
-                name: p.guest.name.trim(),
-                idType: p.guest.idType,
-                idNumber: p.guest.idNumber.trim(),
-                idImage: idImage || guest.idImage,
-                address: p.guest.address.trim() || guest.address,
-                updatedAt: now,
-              };
-            } else {
-              guest = {
-                id: uid(),
-                name: p.guest.name.trim(),
-                phone,
-                idType: p.guest.idType,
-                idNumber: p.guest.idNumber.trim(),
-                idImage,
-                address: p.guest.address.trim(),
-                isFlagged: false,
-                flagReason: "",
-                createdAt: now,
-                updatedAt: now,
-              };
-            }
-            const savedGuest = guest;
-            const nextGuests = guests.some((g) => g.id === savedGuest.id)
-              ? guests.map((g) => (g.id === savedGuest.id ? savedGuest : g))
-              : [...guests, savedGuest];
-
-            const roomNumbers = selectedRooms.map((r) => r.number).join(", ");
-            const roomTypeNames = [
-              ...new Set(
-                selectedRooms.map((r) => types.find((t) => t.id === r.roomTypeId)?.name ?? "-"),
-              ),
-            ].join(", ");
-
-            const stay: Stay = {
-              id: uid(),
-              stayNo: nextStayNo(stays),
-              guestId: savedGuest.id,
-              guestName: savedGuest.name,
-              guestPhone: savedGuest.phone,
-              guestIdType: savedGuest.idType,
-              guestIdNumber: savedGuest.idNumber,
-              guestIdImage: savedGuest.idImage,
-              companions,
-              partyType: p.partyType,
-              guestCount: Math.max(1, p.guestCount || 1 + companions.length),
-              roomId: room.id,
-              roomIds,
-              roomNumber: roomNumbers,
-              roomTypeName: roomTypeNames,
-              plan,
-              checkInAt: p.checkInAt,
-              expectedCheckOutAt: computeExpectedCheckOut(plan, p.checkInAt),
-              checkOutAt: null,
-              status: "ACTIVE",
-              advanceAmount: p.advanceAmount,
-              advanceMode: p.advanceMode,
-              extraCharges: [],
-              discount: 0,
-              taxPercent: p.taxPercent,
-              bill: null,
-              totalAmount: 0,
-              paidAmount: p.advanceAmount,
-              dueAmount: 0,
-              paymentMode: null,
-              notes: p.notes.trim(),
-              createdAt: now,
-              updatedAt: now,
-            };
-
-            const occupied = new Set(roomIds);
-            await writeList(DbKeys.GUESTS, nextGuests);
-            await writeList(DbKeys.STAYS, [...stays, stay]);
-            await writeList(
-              DbKeys.ROOMS,
-              rooms.map((r) => (occupied.has(r.id) ? { ...r, status: "OCCUPIED", updatedAt: now } : r))
-            );
-            return stay;
-          })
-        ),
-      invalidatesTags: ["Stay", "Room", "Guest"],
-    }),
-
-    /** Extra charges / discount / notes while the guest is still staying. */
-    updateStay: builder.mutation<
-      Stay,
-      { id: string; data: Partial<Pick<Stay, "extraCharges" | "discount" | "notes">> }
-    >({
-      queryFn: ({ id, data }) =>
-        run(() =>
-          runExclusive(async () => {
-            const stays = await readList<Stay>(DbKeys.STAYS);
-            let updated: Stay | undefined;
-            const next = stays.map((s) =>
-              s.id === id ? (updated = { ...s, ...data, updatedAt: new Date().toISOString() }) : s
-            );
-            if (!updated) throw new Error("Stay not found");
-            await writeList(DbKeys.STAYS, next);
-            return updated;
-          })
-        ),
-      invalidatesTags: ["Stay"],
+      query: (p) => ({
+        url: "/stay/check-in",
+        method: "POST",
+        body: {
+          guest: {
+            name: p.guest.name.trim(),
+            phone: p.guest.phone.trim(),
+            idType: p.guest.idType || "Aadhaar",
+            idNumber: p.guest.idNumber || "",
+            idImage: p.guest.idImage || "",
+            address: p.guest.address || "",
+          },
+          companions: (p.companions || []).map((c) => ({
+            name: c.name?.trim(),
+            idType: c.idType,
+            idNumber: c.idNumber,
+            idImage: c.idImage,
+          })),
+          partyType: p.partyType || "SOLO",
+          guestCount: Number(p.guestCount) || 1,
+          roomIds: p.roomIds.map(Number),
+          ratePlanId: Number(p.planId),
+          checkInAt: p.checkInAt || new Date().toISOString(),
+          advanceAmount: Number(p.advanceAmount) || 0,
+          advanceMode: p.advanceMode || "CASH",
+          taxPercent: Number(p.taxPercent) || 12,
+          notes: p.notes?.trim() || "",
+          reservationId: p.reservationId ? Number(p.reservationId) : null,
+        },
+      }),
+      transformResponse: (res: any) => mapBackendStay(res?.data ?? res),
+      invalidatesTags: ["Stay", "Room", "Guest", "Reservation", "Report"],
     }),
 
     checkOut: builder.mutation<Stay, CheckOutPayload>({
-      queryFn: (p) =>
-        run(() =>
-          runExclusive(async () => {
-            const [stays, rooms, plans] = await Promise.all([
-              readList<Stay>(DbKeys.STAYS),
-              readList<Room>(DbKeys.ROOMS),
-              readList<RatePlan>(DbKeys.RATE_PLANS),
-            ]);
-            const stay = stays.find((s) => s.id === p.id);
-            if (!stay) throw new Error("Stay not found");
-            if (stay.status === "COMPLETED") throw new Error("This stay has already been checked out");
-
-            // Plan can be switched at checkout (e.g. hourly -> 24 hrs).
-            const plan = p.planId ? plans.find((x) => x.id === p.planId) ?? stay.plan : stay.plan;
-            const planChanged = plan.id !== stay.plan.id;
-            const expected = planChanged
-              ? computeExpectedCheckOut(plan, stay.checkInAt)
-              : stay.expectedCheckOutAt;
-
-            const singleRoomBill = calculateBill({
-              plan,
-              checkInAt: stay.checkInAt,
-              checkOutAt: p.checkOutAt,
-              expectedCheckOutAt: expected,
-              extraCharges: p.extraCharges,
-              discount: p.discount,
-              taxPercent: p.taxPercent,
-            });
-            const bill = billForStayRooms(singleRoomBill, stayRoomCount(stay));
-            const paidAmount = stay.advanceAmount + p.amountReceived;
-            const now = new Date().toISOString();
-            const updated: Stay = {
-              ...stay,
-              plan,
-              expectedCheckOutAt: expected,
-              checkOutAt: p.checkOutAt,
-              status: "COMPLETED",
-              extraCharges: p.extraCharges,
-              discount: bill.discount,
-              taxPercent: p.taxPercent,
-              bill,
-              totalAmount: bill.total,
-              paidAmount,
-              dueAmount: Math.max(0, bill.total - paidAmount),
-              paymentMode: p.paymentMode,
-              updatedAt: now,
-            };
-            await writeList(DbKeys.STAYS, stays.map((s) => (s.id === p.id ? updated : s)));
-            const freeing = new Set(stayRoomIds(stay));
-            const nextStatus = p.autoCleaning ? "CLEANING" : "AVAILABLE";
-            await writeList(
-              DbKeys.ROOMS,
-              rooms.map((r) =>
-                freeing.has(r.id) ? { ...r, status: nextStatus, updatedAt: now } : r
-              )
-            );
-            return updated;
-          })
-        ),
-      invalidatesTags: ["Stay", "Room", "Guest"],
+      query: (p) => ({
+        url: `/stay/${p.id}/check-out`,
+        method: "POST",
+        body: {
+          id: Number(p.id),
+          checkOutAt: p.checkOutAt || new Date().toISOString(),
+          ratePlanId: p.planId ? Number(p.planId) : null,
+          extraCharges: (p.extraCharges || []).map((ec) => ({
+            label: ec.label,
+            amount: Number(ec.amount),
+          })),
+          discount: Number(p.discount) || 0,
+          taxPercent: Number(p.taxPercent) || 12,
+          amountReceived: Number(p.amountReceived) || 0,
+          paymentMode: p.paymentMode || "CASH",
+          autoCleaning: p.autoCleaning !== false,
+        },
+      }),
+      transformResponse: (res: any) => mapBackendStay(res?.data ?? res),
+      invalidatesTags: ["Stay", "Room", "Housekeeping", "Report"],
     }),
 
-    collectDue: builder.mutation<Stay, { id: string; amount: number }>({
-      queryFn: ({ id, amount }) =>
-        run(() =>
-          runExclusive(async () => {
-            const stays = await readList<Stay>(DbKeys.STAYS);
-            let updated: Stay | undefined;
-            const next = stays.map((s) => {
-              if (s.id !== id) return s;
-              const paidAmount = s.paidAmount + amount;
-              return (updated = {
-                ...s,
-                paidAmount,
-                dueAmount: Math.max(0, s.totalAmount - paidAmount),
-                updatedAt: new Date().toISOString(),
-              });
-            });
-            if (!updated) throw new Error("Stay not found");
-            await writeList(DbKeys.STAYS, next);
-            return updated;
-          })
-        ),
-      invalidatesTags: ["Stay"],
+    collectPayment: builder.mutation<
+      Stay,
+      { id: string; amount: number; paymentMode: PaymentMode; notes?: string }
+    >({
+      query: ({ id, amount, paymentMode, notes }) => ({
+        url: `/stay/${id}/payment`,
+        method: "POST",
+        body: {
+          id: Number(id),
+          amount: Number(amount),
+          paymentMode,
+          notes: notes?.trim() || "",
+        },
+      }),
+      transformResponse: (res: any) => mapBackendStay(res?.data ?? res),
+      invalidatesTags: ["Stay", "Report"],
+    }),
+
+    collectDue: builder.mutation<
+      Stay,
+      { id: string; amount: number; paymentMode?: PaymentMode; notes?: string }
+    >({
+      query: ({ id, amount, paymentMode, notes }) => ({
+        url: `/stay/${id}/payment`,
+        method: "POST",
+        body: {
+          id: Number(id),
+          amount: Number(amount),
+          paymentMode: paymentMode || "CASH",
+          notes: notes?.trim() || "",
+        },
+      }),
+      transformResponse: (res: any) => mapBackendStay(res?.data ?? res),
+      invalidatesTags: ["Stay", "Report"],
+    }),
+
+    updateStay: builder.mutation<
+      Stay,
+      { id: string; data: Partial<Stay> }
+    >({
+      query: ({ id, data }) => ({
+        url: `/stay/${id}`,
+        method: "PUT",
+        body: data,
+      }),
+      transformResponse: (res: any) => mapBackendStay(res?.data ?? res),
+      invalidatesTags: ["Stay", "Report"],
     }),
 
     deleteStay: builder.mutation<boolean, string>({
-      queryFn: (id) =>
-        run(() =>
-          runExclusive(async () => {
-            const [stays, rooms] = await Promise.all([
-              readList<Stay>(DbKeys.STAYS),
-              readList<Room>(DbKeys.ROOMS),
-            ]);
-            const stay = stays.find((s) => s.id === id);
-            if (stay?.status === "ACTIVE") {
-              const freeing = new Set(stayRoomIds(stay));
-              await writeList(
-                DbKeys.ROOMS,
-                rooms.map((r) => (freeing.has(r.id) ? { ...r, status: "AVAILABLE" } : r))
-              );
-            }
-            await writeList(DbKeys.STAYS, stays.filter((s) => s.id !== id));
-            return true;
-          })
-        ),
-      invalidatesTags: ["Stay", "Room", "Guest"],
+      query: (id) => ({
+        url: `/stay/${id}`,
+        method: "DELETE",
+      }),
+      transformResponse: () => true,
+      invalidatesTags: ["Stay", "Room", "Report"],
     }),
   }),
 });
@@ -328,9 +272,10 @@ export const {
   useGetStaysQuery,
   useGetStayByIdQuery,
   useCheckInMutation,
-  useUpdateStayMutation,
   useCheckOutMutation,
+  useCollectPaymentMutation,
   useCollectDueMutation,
+  useUpdateStayMutation,
   useDeleteStayMutation,
 } = stayApi;
 

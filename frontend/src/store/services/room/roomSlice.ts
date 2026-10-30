@@ -1,6 +1,4 @@
-import { hotelApi, run } from "../baseQuery";
-import { DbKeys, readList, runExclusive, writeList } from "../../../utils/db/localDb";
-import { uid } from "../../../utils/helper/helper";
+import { hotelApi } from "../baseQuery";
 import type { Room, RoomStatus } from "../../../utils/interfaces/Interface";
 
 export interface RoomPayload {
@@ -9,7 +7,44 @@ export interface RoomPayload {
   roomTypeId: string;
   notes: string;
   status?: RoomStatus;
+  basePrice?: number;
+  bedType?: string;
+  category?: string;
+  image?: string;
+  maxGuests?: number;
+  sizeSqFt?: number;
+  suitableFor?: string;
+  bedConfig?: string;
+  amenities?: string[] | string;
+  badge?: string;
+  propertyId?: string;
 }
+
+const appendRoomForm = (formData: FormData, payload: RoomPayload) => {
+  formData.append("Number", payload.number.trim());
+  formData.append("Floor", payload.floor.trim());
+  formData.append("RoomTypeId", payload.roomTypeId);
+  formData.append("Notes", payload.notes?.trim() ?? "");
+  if (payload.status) formData.append("Status", payload.status);
+  if (payload.basePrice != null) formData.append("BasePrice", String(payload.basePrice));
+  if (payload.maxGuests != null) formData.append("MaxGuests", String(payload.maxGuests));
+  if (payload.sizeSqFt != null) formData.append("SizeSqFt", String(payload.sizeSqFt));
+  if (payload.bedType != null) formData.append("BedType", payload.bedType);
+  if (payload.category) formData.append("Category", payload.category);
+  if (payload.image != null) formData.append("Image", payload.image);
+  if (payload.suitableFor != null) formData.append("SuitableFor", payload.suitableFor);
+  if (payload.bedConfig != null) formData.append("BedConfig", payload.bedConfig);
+  if (payload.badge != null) formData.append("Badge", payload.badge);
+  if (payload.propertyId) formData.append("PropertyId", payload.propertyId);
+  if (payload.amenities != null) {
+    formData.append(
+      "Amenities",
+      Array.isArray(payload.amenities) ? JSON.stringify(payload.amenities) : payload.amenities,
+    );
+  }
+};
+
+const createdId = (res: unknown) => (typeof res === "number" ? res : 0);
 
 export interface BulkRoomPayload {
   from: number;
@@ -17,137 +52,148 @@ export interface BulkRoomPayload {
   floor: string;
   roomTypeId: string;
   prefix?: string;
+  propertyId?: string;
 }
 
-const byNumber = (a: Room, b: Room) =>
-  a.number.localeCompare(b.number, undefined, { numeric: true });
+const mapBackendRoom = (item: any): Room => {
+  if (!item || typeof item !== "object") {
+    return {
+      id: "",
+      number: "",
+      floor: "",
+      roomTypeId: "",
+      status: "AVAILABLE",
+      notes: "",
+      images: [],
+      amenities: [],
+      maxGuests: 0,
+      sizeSqFt: 0,
+      basePrice: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  let parsedAmenities: string[] = [];
+  if (Array.isArray(item.amenities)) {
+    parsedAmenities = item.amenities;
+  } else if (typeof item.amenities === "string") {
+    try {
+      parsedAmenities = JSON.parse(item.amenities);
+    } catch {
+      parsedAmenities = item.amenities.split(",").map((s: string) => s.trim());
+    }
+  }
+
+  let parsedImages: string[] = [];
+  if (Array.isArray(item.images)) {
+    parsedImages = item.images;
+  } else if (typeof item.images === "string") {
+    try {
+      parsedImages = JSON.parse(item.images);
+    } catch {
+      parsedImages = [item.images];
+    }
+  }
+
+  return {
+    id: String(item.id),
+    number: String(item.number),
+    floor: item.floor ? String(item.floor) : "1",
+    roomTypeId: String(item.roomTypeId),
+    status: (item.status as RoomStatus) || "AVAILABLE",
+    notes: item.notes || "",
+    image: item.image || item.roomType?.image || (parsedImages.length > 0 ? parsedImages[0] : undefined),
+    images: parsedImages,
+    bedType: item.bedType || undefined,
+    category: item.category || undefined,
+    suitableFor: item.suitableFor || undefined,
+    bedConfig: item.bedConfig || undefined,
+    maxGuests: Number(item.maxGuests) || 2,
+    sizeSqFt: Number(item.sizeSqFt) || 300,
+    basePrice: Number(item.basePrice) || 3500,
+    amenities: parsedAmenities,
+    badge: item.badge || undefined,
+    propertyId: item.propertyId ? String(item.propertyId) : undefined,
+    propertyName: item.propertyName || undefined,
+    createdAt: item.createdDate || new Date().toISOString(),
+    updatedAt: item.updatedDate || item.createdDate || new Date().toISOString(),
+  };
+};
 
 const roomApi = hotelApi.injectEndpoints({
   endpoints: (builder) => ({
     getRooms: builder.query<Room[], void>({
-      queryFn: () =>
-        run(async () => (await readList<Room>(DbKeys.ROOMS)).sort(byNumber)),
+      query: () => "/room",
+      transformResponse: (response: any) => {
+        const rawList = Array.isArray(response) ? response : (response?.data ?? []);
+        return rawList.map(mapBackendRoom).filter((room: Room) => room.id).sort((a: Room, b: Room) =>
+          a.number.localeCompare(b.number, undefined, { numeric: true })
+        );
+      },
       providesTags: ["Room"],
     }),
-    createRoom: builder.mutation<Room, RoomPayload>({
-      queryFn: (payload) =>
-        run(() =>
-          runExclusive(async () => {
-            const rooms = await readList<Room>(DbKeys.ROOMS);
-            const number = payload.number.trim();
-            if (rooms.some((r) => r.number.toLowerCase() === number.toLowerCase())) {
-              throw new Error(`Room ${number} already exists`);
-            }
-            const now = new Date().toISOString();
-            const room: Room = {
-              id: uid(),
-              number,
-              floor: payload.floor.trim(),
-              roomTypeId: payload.roomTypeId,
-              notes: payload.notes?.trim() ?? "",
-              status: payload.status ?? "AVAILABLE",
-              createdAt: now,
-              updatedAt: now,
-            };
-            await writeList(DbKeys.ROOMS, [...rooms, room]);
-            return room;
-          })
-        ),
-      invalidatesTags: ["Room"],
+
+    createRoom: builder.mutation<number, RoomPayload>({
+      query: (payload) => {
+        const formData = new FormData();
+        appendRoomForm(formData, payload);
+        return {
+          url: "/room",
+          method: "POST",
+          body: formData,
+        };
+      },
+      transformResponse: (res: unknown) => createdId(res),
+      invalidatesTags: ["Room", "Housekeeping"],
     }),
+
     createBulkRooms: builder.mutation<number, BulkRoomPayload>({
-      queryFn: (payload) =>
-        run(() =>
-          runExclusive(async () => {
-            if (payload.to < payload.from) throw new Error("'To' room number must be greater than 'From' room number");
-            if (payload.to - payload.from > 199) throw new Error("Cannot add more than 200 rooms at once");
-            const rooms = await readList<Room>(DbKeys.ROOMS);
-            const existing = new Set(rooms.map((r) => r.number.toLowerCase()));
-            const now = new Date().toISOString();
-            const added: Room[] = [];
-            for (let n = payload.from; n <= payload.to; n++) {
-              const number = `${payload.prefix ?? ""}${n}`;
-              if (existing.has(number.toLowerCase())) continue;
-              added.push({
-                id: uid(),
-                number,
-                floor: payload.floor.trim(),
-                roomTypeId: payload.roomTypeId,
-                notes: "",
-                status: "AVAILABLE",
-                createdAt: now,
-                updatedAt: now,
-              });
-            }
-            await writeList(DbKeys.ROOMS, [...rooms, ...added]);
-            return added.length;
-          })
-        ),
-      invalidatesTags: ["Room"],
+      query: (payload) => ({
+        url: "/room/bulk",
+        method: "POST",
+        body: {
+          from: payload.from,
+          to: payload.to,
+          floor: payload.floor.trim(),
+          roomTypeId: Number(payload.roomTypeId),
+          prefix: payload.prefix ?? "",
+          propertyId: payload.propertyId ? Number(payload.propertyId) : null,
+        },
+      }),
+      transformResponse: (res: unknown) => (typeof res === "number" ? res : 0),
+      invalidatesTags: ["Room", "Housekeeping"],
     }),
-    updateRoom: builder.mutation<Room, { id: string; data: RoomPayload }>({
-      queryFn: ({ id, data }) =>
-        run(() =>
-          runExclusive(async () => {
-            const rooms = await readList<Room>(DbKeys.ROOMS);
-            const number = data.number.trim();
-            if (rooms.some((r) => r.id !== id && r.number.toLowerCase() === number.toLowerCase())) {
-              throw new Error(`Room ${number} already exists`);
-            }
-            let updated: Room | undefined;
-            const next = rooms.map((r) =>
-              r.id === id
-                ? (updated = {
-                    ...r,
-                    number,
-                    floor: data.floor.trim(),
-                    roomTypeId: data.roomTypeId,
-                    notes: data.notes?.trim() ?? "",
-                    updatedAt: new Date().toISOString(),
-                  })
-                : r
-            );
-            if (!updated) throw new Error("Room not found");
-            await writeList(DbKeys.ROOMS, next);
-            return updated;
-          })
-        ),
-      invalidatesTags: ["Room"],
+
+    updateRoom: builder.mutation<void, { id: string; data: RoomPayload }>({
+      query: ({ id, data }) => {
+        const formData = new FormData();
+        appendRoomForm(formData, data);
+        return {
+          url: `/room/${id}`,
+          method: "PUT",
+          body: formData,
+        };
+      },
+      invalidatesTags: ["Room", "Housekeeping"],
     }),
-    updateRoomStatus: builder.mutation<Room, { id: string; status: RoomStatus }>({
-      queryFn: ({ id, status }) =>
-        run(() =>
-          runExclusive(async () => {
-            const rooms = await readList<Room>(DbKeys.ROOMS);
-            let updated: Room | undefined;
-            const next = rooms.map((r) => {
-              if (r.id !== id) return r;
-              if (r.status === "OCCUPIED" && status !== "OCCUPIED") {
-                throw new Error("Please check out the occupied room first");
-              }
-              return (updated = { ...r, status, updatedAt: new Date().toISOString() });
-            });
-            if (!updated) throw new Error("Room not found");
-            await writeList(DbKeys.ROOMS, next);
-            return updated;
-          })
-        ),
-      invalidatesTags: ["Room"],
+
+    updateRoomStatus: builder.mutation<void, { id: string; status: RoomStatus }>({
+      query: ({ id, status }) => ({
+        url: `/room/${id}/status`,
+        method: "PUT",
+        body: { status },
+      }),
+      invalidatesTags: ["Room", "Housekeeping", "Stay", "Reservation"],
     }),
+
     deleteRoom: builder.mutation<boolean, string>({
-      queryFn: (id) =>
-        run(() =>
-          runExclusive(async () => {
-            const rooms = await readList<Room>(DbKeys.ROOMS);
-            const room = rooms.find((r) => r.id === id);
-            if (room?.status === "OCCUPIED") {
-              throw new Error("Cannot delete an occupied room — please check out first");
-            }
-            await writeList(DbKeys.ROOMS, rooms.filter((r) => r.id !== id));
-            return true;
-          })
-        ),
-      invalidatesTags: ["Room"],
+      query: (id) => ({
+        url: `/room/${id}`,
+        method: "DELETE",
+      }),
+      transformResponse: () => true,
+      invalidatesTags: ["Room", "Housekeeping", "Stay", "Reservation"],
     }),
   }),
 });

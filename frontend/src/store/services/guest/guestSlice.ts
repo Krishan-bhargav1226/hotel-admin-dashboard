@@ -1,14 +1,4 @@
-import { hotelApi, run } from "../baseQuery";
-import {
-  DbKeys,
-  deleteImage,
-  persistImage,
-  readImage,
-  readList,
-  runExclusive,
-  writeList,
-} from "../../../utils/db/localDb";
-import { normalizePhone, uid } from "../../../utils/helper/helper";
+import { hotelApi } from "../baseQuery";
 import type {
   Guest,
   GuestLookup,
@@ -27,144 +17,196 @@ export interface GuestPayload {
   flagReason: string;
 }
 
-const statsFor = (guestId: string, stays: Stay[]) => {
-  const mine = stays.filter((s) => s.guestId === guestId);
-  const sorted = [...mine].sort((a, b) => b.checkInAt.localeCompare(a.checkInAt));
-  return {
-    visits: mine.length,
-    totalSpent: mine.reduce((sum, s) => sum + (s.status === "COMPLETED" ? s.totalAmount : 0), 0),
-    lastStay: sorted[0] ?? null,
-  };
+const mapBackendGuest = (item: any): GuestWithStats => ({
+  id: String(item.id),
+  name: item.name,
+  phone: item.phone,
+  idType: item.idType || "Aadhaar",
+  idNumber: item.idNumber || "",
+  idImage: item.idImage || "",
+  address: item.address || "",
+  isFlagged: Boolean(item.isFlagged),
+  flagReason: item.flagReason || "",
+  visits: Number(item.visits) || 0,
+  totalSpent: Number(item.totalSpent) || 0,
+  lastVisitAt: item.lastVisitAt || null,
+  createdAt: item.createdDate || new Date().toISOString(),
+  updatedAt: item.updatedDate || item.createdDate || new Date().toISOString(),
+});
+
+const clip = (value: string, max: number) => {
+  const text = value.trim();
+  return text.length > max ? text.slice(0, max) : text;
+};
+
+const dataUrlToFile = (dataUrl: string): File | null => {
+  const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+  if (!match) return null;
+  const mime = match[1] || "image/jpeg";
+  const binary = atob(match[2]);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  const extension = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
+  return new File([bytes], `id-proof.${extension}`, { type: mime });
+};
+
+const guestFormData = (payload: GuestPayload) => {
+  const formData = new FormData();
+  formData.append("Name", clip(payload.name, 150));
+  formData.append("Phone", clip(payload.phone, 20));
+  formData.append("IdType", clip(payload.idType || "Aadhaar", 50));
+  formData.append("IdNumber", clip(payload.idNumber || "", 50));
+  formData.append("Address", clip(payload.address || "", 300));
+  formData.append("IsFlagged", payload.isFlagged ? "true" : "false");
+  formData.append("FlagReason", clip(payload.flagReason || "", 300));
+  const image = payload.idImage?.trim() ?? "";
+  if (image.startsWith("data:")) {
+    const file = dataUrlToFile(image);
+    if (file) formData.append("IdImageFile", file);
+    else formData.append("IdImage", image);
+  } else if (image) {
+    formData.append("IdImage", image);
+  }
+  return formData;
 };
 
 const guestApi = hotelApi.injectEndpoints({
   endpoints: (builder) => ({
-    getGuests: builder.query<GuestWithStats[], void>({
-      queryFn: () =>
-        run(async () => {
-          const [guests, stays] = await Promise.all([
-            readList<Guest>(DbKeys.GUESTS),
-            readList<Stay>(DbKeys.STAYS),
-          ]);
-          return guests
-            .map((g) => {
-              const s = statsFor(g.id, stays);
-              return {
-                ...g,
-                visits: s.visits,
-                totalSpent: s.totalSpent,
-                lastVisitAt: s.lastStay?.checkInAt ?? null,
-              };
-            })
-            .sort((a, b) => (b.lastVisitAt ?? b.createdAt).localeCompare(a.lastVisitAt ?? a.createdAt));
-        }),
+    getGuests: builder.query<GuestWithStats[], { search?: string } | void>({
+      query: (params) => {
+        const search = params && typeof params === "object" ? params.search?.trim() : "";
+        return search ? `/guest?search=${encodeURIComponent(search)}` : "/guest";
+      },
+      transformResponse: (response: any) => {
+        const rawList = Array.isArray(response) ? response : (response?.data ?? []);
+        return rawList.map(mapBackendGuest);
+      },
       providesTags: ["Guest", "Stay"],
     }),
+
     getGuestById: builder.query<{ guest: Guest; stays: Stay[] } | null, string>({
-      queryFn: (id) =>
-        run(async () => {
-          const [guests, stays] = await Promise.all([
-            readList<Guest>(DbKeys.GUESTS),
-            readList<Stay>(DbKeys.STAYS),
-          ]);
-          const guest = guests.find((g) => g.id === id);
-          if (!guest) return null;
-          return {
-            guest,
-            stays: stays
-              .filter((s) => s.guestId === id)
-              .sort((a, b) => b.checkInAt.localeCompare(a.checkInAt)),
-          };
-        }),
+      query: (id) => `/guest/${id}`,
+      transformResponse: (response: any) => {
+        const item = response?.data ?? response;
+        if (!item) return null;
+        const staysList: any[] = Array.isArray(item.stays) ? item.stays : [];
+        const mappedStays: Stay[] = staysList.map((s: any) => ({
+          id: String(s.id),
+          stayNo: s.stayNo,
+          guestId: String(s.guestId),
+          guestName: s.guestName,
+          guestPhone: s.guestPhone,
+          guestIdType: s.guestIdType || "",
+          guestIdNumber: s.guestIdNumber || "",
+          guestIdImage: s.guestIdImage || "",
+          companions: (s.companions || []).map((c: any) => ({
+            name: c.name || "",
+            idType: c.idType || "",
+            idNumber: c.idNumber || "",
+            idImage: c.idImage || "",
+          })),
+          partyType: s.partyType,
+          guestCount: Number(s.guestCount) || 1,
+          roomId: String(s.roomId),
+          roomIds: s.roomIds && s.roomIds.length ? s.roomIds.map(String) : [String(s.roomId)],
+          roomNumber: s.roomNumber,
+          roomTypeName: s.roomTypeName || "Standard",
+          plan: {
+            id: String(s.ratePlanId),
+            name: s.planName || "Overnight",
+            kind: s.planKind || "FIXED",
+            rate: Number(s.planRate) || 0,
+            durationHours: Number(s.planDurationHours) || 24,
+            checkoutTime: s.planCheckoutTime || "",
+            minHours: Number(s.planMinHours) || 0,
+            overtimeRate: Number(s.planOvertimeRate) || 0,
+            graceMinutes: Number(s.planGraceMinutes) || 30,
+            roomTypeIds: [],
+            isActive: true,
+            createdAt: s.createdDate || new Date().toISOString(),
+          },
+          checkInAt: s.checkInAt,
+          expectedCheckOutAt: s.expectedCheckOutAt ?? null,
+          checkOutAt: s.checkOutAt ?? null,
+          status: s.status || "ACTIVE",
+          advanceAmount: Number(s.advanceAmount) || 0,
+          advanceMode: s.advanceMode || "CASH",
+          extraCharges: (s.extraCharges || []).map((ec: any) => ({
+            id: String(ec.id),
+            label: ec.label || "",
+            amount: Number(ec.amount) || 0,
+          })),
+          discount: Number(s.discount) || 0,
+          taxPercent: Number(s.taxPercent) || 12,
+          bill: null,
+          totalAmount: Number(s.totalAmount) || 0,
+          paidAmount: Number(s.paidAmount) || 0,
+          dueAmount: Number(s.dueAmount) || 0,
+          paymentMode: s.paymentMode ?? null,
+          notes: s.notes ?? "",
+          createdAt: s.createdDate || new Date().toISOString(),
+          updatedAt: s.updatedDate || s.createdDate || new Date().toISOString(),
+        }));
+        return {
+          guest: mapBackendGuest(item),
+          stays: mappedStays,
+        };
+      },
       providesTags: ["Guest", "Stay"],
     }),
-    /** Repeat guest lookup: phone number -> last saved ID & visit history. */
+
     getGuestByPhone: builder.query<GuestLookup | null, string>({
-      queryFn: (phone) =>
-        run(async () => {
-          const p = normalizePhone(phone);
-          const [guests, stays] = await Promise.all([
-            readList<Guest>(DbKeys.GUESTS),
-            readList<Stay>(DbKeys.STAYS),
-          ]);
-          const guest = guests.find((g) => g.phone === p);
-          if (!guest) return null;
-          return { guest, ...statsFor(guest.id, stays) };
-        }),
+      query: (phone) => `/guest?search=${encodeURIComponent(phone.trim())}`,
+      transformResponse: (response: any) => {
+        const rawList = Array.isArray(response) ? response : (response?.data ?? []);
+        const item = rawList[0];
+        if (!item) return null;
+        const guest = mapBackendGuest(item);
+        return {
+          guest,
+          visits: guest.visits,
+          totalSpent: guest.totalSpent,
+          lastStay: null,
+        };
+      },
       providesTags: ["Guest", "Stay"],
     }),
+
+    getImage: builder.query<string, string>({
+      queryFn: (key) => {
+        if (!key) return { data: "" };
+        if (key.startsWith("data:") || key.startsWith("http")) return { data: key };
+        return { data: `http://localhost:7444${key.startsWith("/") ? "" : "/"}${key}` };
+      },
+    }),
+
     createGuest: builder.mutation<Guest, GuestPayload>({
-      queryFn: (payload) =>
-        run(() =>
-          runExclusive(async () => {
-            const guests = await readList<Guest>(DbKeys.GUESTS);
-            const phone = normalizePhone(payload.phone);
-            if (guests.some((g) => g.phone === phone)) {
-              throw new Error("A guest with this phone number already exists");
-            }
-            const now = new Date().toISOString();
-            const guest: Guest = {
-              ...payload,
-              id: uid(),
-              phone,
-              name: payload.name.trim(),
-              idImage: await persistImage(payload.idImage),
-              createdAt: now,
-              updatedAt: now,
-            };
-            await writeList(DbKeys.GUESTS, [...guests, guest]);
-            return guest;
-          })
-        ),
+      query: (payload) => ({
+        url: "/guest",
+        method: "POST",
+        body: guestFormData(payload),
+      }),
+      transformResponse: (res: any) => mapBackendGuest(res?.data ?? res),
       invalidatesTags: ["Guest"],
     }),
+
     updateGuest: builder.mutation<Guest, { id: string; data: GuestPayload }>({
-      queryFn: ({ id, data }) =>
-        run(() =>
-          runExclusive(async () => {
-            const guests = await readList<Guest>(DbKeys.GUESTS);
-            const phone = normalizePhone(data.phone);
-            if (guests.some((g) => g.id !== id && g.phone === phone)) {
-              throw new Error("Another guest with this phone number already exists");
-            }
-            const old = guests.find((g) => g.id === id);
-            if (!old) throw new Error("Guest not found");
-            const idImage = await persistImage(data.idImage);
-            if (old.idImage && old.idImage !== idImage) await deleteImage(old.idImage);
-            const updated: Guest = {
-              ...old,
-              ...data,
-              phone,
-              name: data.name.trim(),
-              idImage,
-              updatedAt: new Date().toISOString(),
-            };
-            await writeList(DbKeys.GUESTS, guests.map((g) => (g.id === id ? updated : g)));
-            return updated;
-          })
-        ),
+      query: ({ id, data }) => ({
+        url: `/guest/${id}`,
+        method: "PUT",
+        body: guestFormData(data),
+      }),
+      transformResponse: (res: any) => mapBackendGuest(res?.data ?? res),
       invalidatesTags: ["Guest"],
     }),
+
     deleteGuest: builder.mutation<boolean, string>({
-      queryFn: (id) =>
-        run(() =>
-          runExclusive(async () => {
-            const stays = await readList<Stay>(DbKeys.STAYS);
-            if (stays.some((s) => s.guestId === id && s.status === "ACTIVE")) {
-              throw new Error("Guest is currently checked in — please check out first");
-            }
-            const guests = await readList<Guest>(DbKeys.GUESTS);
-            const guest = guests.find((g) => g.id === id);
-            if (guest?.idImage) await deleteImage(guest.idImage);
-            await writeList(DbKeys.GUESTS, guests.filter((g) => g.id !== id));
-            return true;
-          })
-        ),
+      query: (id) => ({
+        url: `/guest/${id}`,
+        method: "DELETE",
+      }),
+      transformResponse: () => true,
       invalidatesTags: ["Guest"],
-    }),
-    getImage: builder.query<string | null, string>({
-      queryFn: (key) => run(() => readImage(key)),
-      providesTags: (_r, _e, key) => [{ type: "Image", id: key }],
     }),
   }),
 });
@@ -173,10 +215,10 @@ export const {
   useGetGuestsQuery,
   useGetGuestByIdQuery,
   useGetGuestByPhoneQuery,
+  useGetImageQuery,
   useCreateGuestMutation,
   useUpdateGuestMutation,
   useDeleteGuestMutation,
-  useGetImageQuery,
 } = guestApi;
 
 export default guestApi;

@@ -1,185 +1,211 @@
-import { hotelApi, run } from "../baseQuery";
-import { DbKeys, readList, readSettings, runExclusive, writeList, writeSettings } from "../../../utils/db/localDb";
-import type { HotelProperty, Room } from "../../../utils/interfaces/Interface";
+import { hotelApi } from "../baseQuery";
+import type { HotelProperty } from "../../../utils/interfaces/Interface";
+
+const ACTIVE_PROPERTY_KEY = "activePropertyId";
+const PROPERTY_STATUSES = ["", "ACTIVE", "INACTIVE", "MAINTENANCE"];
+
+const asStatus = (value: unknown): HotelProperty["status"] => {
+  if (typeof value === "string" && PROPERTY_STATUSES.includes(value)) return value as HotelProperty["status"];
+  const index = Number(value);
+  return (PROPERTY_STATUSES[index] as HotelProperty["status"]) || "ACTIVE";
+};
+
+const clip = (value: unknown, max: number) => {
+  const text = String(value ?? "").trim();
+  return text.length > max ? text.slice(0, max) : text;
+};
+
+const phoneValue = (value: unknown) => {
+  const text = String(value ?? "").trim();
+  if (text.length <= 20) return text;
+  const digits = text.replace(/\D/g, "");
+  return (digits.length > 10 ? digits.slice(-10) : digits).slice(0, 20);
+};
+
+const finite = (value: unknown, fallback = 0) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+};
+
+const readActivePropertyId = () => {
+  try {
+    return localStorage.getItem(ACTIVE_PROPERTY_KEY);
+  } catch {
+    return null;
+  }
+};
+
+const mapBackendProperty = (item: any): HotelProperty => {
+  const id = String(item.id);
+  const stored = readActivePropertyId();
+  return {
+    id,
+    name: item.name || "",
+    chain: item.chain || "",
+    brandTier: item.brandTier || "",
+    location: item.location || "",
+    starRating: item.starRating || "",
+    roomCount: finite(item.roomCount),
+    occupancyRate: finite(item.occupancyRate),
+    phone: item.phone || "",
+    email: item.email || "",
+    address: item.address || "",
+    gstin: item.gstin || "",
+    upiId: item.upiId || "",
+    dailyRevenue: finite(item.dailyRevenue),
+    adr: finite(item.adr),
+    managerName: item.managerName || "",
+    status: asStatus(item.status),
+    active: stored ? id === stored : false,
+  };
+};
+
+export interface CreateHotelInput extends Partial<HotelProperty> {
+  venueAdminFirstName?: string;
+  venueAdminLastName?: string;
+  venueAdminEmail?: string;
+  venueAdminPhone?: string;
+  venueAdminPassword?: string;
+  venueAdminOtp?: number;
+}
+
+const propertyBody = (input: CreateHotelInput) => ({
+  name: clip(input.name, 150),
+  chain: clip(input.chain, 150),
+  brandTier: clip(input.brandTier, 50),
+  location: clip(input.location, 150),
+  starRating: clip(input.starRating, 20),
+  roomCount: finite(input.roomCount),
+  occupancyRate: finite(input.occupancyRate),
+  phone: phoneValue(input.phone),
+  email: clip(input.email, 150),
+  address: clip(input.address, 300),
+  gstin: clip(input.gstin, 20),
+  upiId: clip(input.upiId, 100),
+  dailyRevenue: finite(input.dailyRevenue),
+  adr: finite(input.adr),
+  managerName: clip(input.managerName, 100),
+  status: input.status || "ACTIVE",
+  venueAdminFirstName: clip(input.venueAdminFirstName, 50),
+  venueAdminLastName: clip(input.venueAdminLastName, 50),
+  venueAdminEmail: clip(input.venueAdminEmail, 150),
+  venueAdminPhone: phoneValue(input.venueAdminPhone),
+  venueAdminPassword: input.venueAdminPassword || "",
+  venueAdminOtp: Number(input.venueAdminOtp) || 0,
+});
+
+const keepText = (next: unknown, previous: unknown, max: number) => {
+  const text = clip(next, max);
+  if (text) return text;
+  return clip(previous, max) || null;
+};
 
 const propertyApi = hotelApi.injectEndpoints({
   endpoints: (builder) => ({
     getProperties: builder.query<HotelProperty[], void>({
-      queryFn: () =>
-        run(async () => {
-          return readList<HotelProperty>(DbKeys.PROPERTIES);
-        }),
+      query: () => "/property",
+      transformResponse: (response: any) => {
+        const rawList = Array.isArray(response) ? response : (response?.data ?? []);
+        return rawList.map(mapBackendProperty);
+      },
       providesTags: ["Property"],
     }),
 
     switchActiveProperty: builder.mutation<HotelProperty, string>({
-      queryFn: (propertyId) =>
-        run(() =>
-          runExclusive(async () => {
-            const list = await readList<HotelProperty>(DbKeys.PROPERTIES);
-            const target = list.find((p) => p.id === propertyId);
-            if (!target) throw new Error("Selected property not found in chain portfolio");
-
-            const updatedList = list.map((p) => ({
-              ...p,
-              active: p.id === propertyId,
-            }));
-            await writeList(DbKeys.PROPERTIES, updatedList);
-
-            const currentSettings = await readSettings();
-            await writeSettings({
-              ...currentSettings,
-              hotelName: target.name,
-              brandTier: target.brandTier || currentSettings.brandTier,
-              address: target.address,
-              phone: target.phone,
-              email: target.email,
-              gstin: target.gstin,
-              upiId: target.upiId,
-            });
-
-            return { ...target, active: true };
-          })
-        ),
+      async queryFn(propertyId, _api, _extra, baseQuery) {
+        const loaded = await baseQuery({ url: `/property/${propertyId}`, method: "GET" });
+        if (loaded.error) return { error: loaded.error };
+        const raw = (loaded.data ?? {}) as Record<string, unknown>;
+        const property = mapBackendProperty(raw);
+        const settingsResult = await baseQuery("/settings");
+        if (settingsResult.error) return { error: settingsResult.error };
+        const current = (settingsResult.data ?? {}) as Record<string, unknown>;
+        const saved = await baseQuery({
+          url: "/settings",
+          method: "PUT",
+          body: {
+            ...current,
+            hotelName: clip(raw.name ?? property.name, 150),
+            chainName: keepText(raw.chain, current.chainName, 150),
+            brandTier: keepText(raw.brandTier, current.brandTier, 50),
+            address: keepText(raw.address, current.address, 300),
+            city: keepText(raw.location, current.city, 100),
+            phone: keepText(phoneValue(raw.phone), current.phone, 20),
+            email: keepText(raw.email, current.email, 150),
+            gstin: keepText(raw.gstin, current.gstin, 20),
+            upiId: keepText(raw.upiId, current.upiId, 100),
+            managerSignatory: keepText(raw.managerName, current.managerSignatory, 100),
+          },
+        });
+        if (saved.error) return { error: saved.error };
+        try {
+          localStorage.setItem(ACTIVE_PROPERTY_KEY, property.id);
+        } catch {
+          // The settings name still identifies the active hotel.
+        }
+        return { data: { ...property, active: true } };
+      },
       invalidatesTags: ["Property", "Settings", "Room", "Stay"],
     }),
 
-    createProperty: builder.mutation<HotelProperty, Partial<HotelProperty>>({
-      queryFn: (input) =>
-        run(() =>
-          runExclusive(async () => {
-            const list = await readList<HotelProperty>(DbKeys.PROPERTIES);
-            const newProperty: HotelProperty = {
-              id: `prop-${Date.now()}`,
-              name: input.name?.trim() || "New Chain Hotel",
-              chain: input.chain?.trim() || "Grand Horizon Hotels & Resorts",
-              brandTier: input.brandTier?.trim() || "★★★★ Premium Collection",
-              location: input.location?.trim() || "India",
-              starRating: input.starRating?.trim() || "4 Star Deluxe",
-              roomCount: Number(input.roomCount) || 30,
-              occupancyRate: Number(input.occupancyRate) || 0,
-              phone: input.phone?.trim() || "+91 ...",
-              email: input.email?.trim() || "hotel@grandhorizonhotels.com",
-              address: input.address?.trim() || "Hotel Address",
-              gstin: input.gstin?.trim() || "08AAAAA0000A1Z5",
-              upiId: input.upiId?.trim() || "hotel@upi",
-              dailyRevenue: Number(input.dailyRevenue) || 0,
-              adr: Number(input.adr) || 4500,
-              managerName: input.managerName?.trim() || "General Manager",
-              status: input.status || "ACTIVE",
-              active: false,
-            };
-
-            const updated = [newProperty, ...list];
-            await writeList(DbKeys.PROPERTIES, updated);
-            return newProperty;
-          })
-        ),
+    createProperty: builder.mutation<HotelProperty, CreateHotelInput>({
+      query: (input) => ({
+        url: "/property",
+        method: "POST",
+        body: propertyBody(input),
+      }),
+      transformResponse: (res: any, _meta: unknown, arg: CreateHotelInput) =>
+        mapBackendProperty(res && typeof res === "object" ? (res.data ?? res) : { ...propertyBody(arg), id: res }),
       invalidatesTags: ["Property"],
     }),
 
     updateProperty: builder.mutation<HotelProperty, HotelProperty>({
-      queryFn: (updatedItem) =>
-        run(() =>
-          runExclusive(async () => {
-            const list = await readList<HotelProperty>(DbKeys.PROPERTIES);
-            const index = list.findIndex((p) => p.id === updatedItem.id);
-            if (index === -1) throw new Error("Property not found");
-
-            const updatedList = [...list];
-            updatedList[index] = updatedItem;
-            await writeList(DbKeys.PROPERTIES, updatedList);
-
-            // If active property was modified, sync active hotel settings
-            if (updatedItem.active) {
-              const currentSettings = await readSettings();
-              await writeSettings({
-                ...currentSettings,
-                hotelName: updatedItem.name,
-                brandTier: updatedItem.brandTier,
-                address: updatedItem.address,
-                phone: updatedItem.phone,
-                email: updatedItem.email,
-                gstin: updatedItem.gstin,
-                upiId: updatedItem.upiId,
-              });
-            }
-
-            return updatedItem;
-          })
-        ),
-      invalidatesTags: ["Property", "Settings"],
-    }),
-
-    deleteProperty: builder.mutation<void, string>({
-      queryFn: (propertyId) =>
-        run(() =>
-          runExclusive(async () => {
-            const list = await readList<HotelProperty>(DbKeys.PROPERTIES);
-            if (list.length <= 1) {
-              throw new Error("Cannot delete the only hotel property in the chain portfolio.");
-            }
-
-            const target = list.find((p) => p.id === propertyId);
-            const remaining = list.filter((p) => p.id !== propertyId);
-
-            // If deleted property was active, make first remaining property active
-            if (target?.active && remaining.length > 0) {
-              remaining[0].active = true;
-              const currentSettings = await readSettings();
-              await writeSettings({
-                ...currentSettings,
-                hotelName: remaining[0].name,
-                brandTier: remaining[0].brandTier,
-                address: remaining[0].address,
-                phone: remaining[0].phone,
-                email: remaining[0].email,
-                gstin: remaining[0].gstin,
-                upiId: remaining[0].upiId,
-              });
-            }
-
-            await writeList(DbKeys.PROPERTIES, remaining);
-          })
-        ),
-      invalidatesTags: ["Property", "Settings", "Room", "Stay"],
+      query: (data) => ({
+        url: `/property/${data.id}`,
+        method: "PUT",
+        body: propertyBody(data),
+      }),
+      transformResponse: (res: any, _meta: unknown, data: HotelProperty) =>
+        mapBackendProperty(res && typeof res === "object" ? (res.data ?? res) : { ...propertyBody(data), id: data.id }),
+      invalidatesTags: ["Property"],
     }),
 
     addRoomToProperty: builder.mutation<
-      HotelProperty,
-      { propertyId: string; number: string; floor?: string; roomType?: string; price?: number }
+      void,
+      { propertyId: string; number: string; floor: string; roomType?: string; roomTypeId?: string; price?: number; notes?: string }
     >({
-      queryFn: ({ propertyId, number, floor = "Floor 1", roomType = "Deluxe Room", price = 4500 }) =>
-        run(() =>
-          runExclusive(async () => {
-            const list = await readList<HotelProperty>(DbKeys.PROPERTIES);
-            const target = list.find((p) => p.id === propertyId);
-            if (!target) throw new Error("Property not found");
+      query: (payload) => {
+        const formData = new FormData();
+        formData.append("Number", payload.number.trim());
+        formData.append("Floor", payload.floor.trim());
+        formData.append("RoomTypeId", payload.roomTypeId || "1");
+        formData.append("PropertyId", payload.propertyId);
+        if (payload.price) formData.append("BasePrice", String(payload.price));
+        if (payload.notes) formData.append("Notes", payload.notes);
+        return {
+          url: "/room",
+          method: "POST",
+          body: formData,
+        };
+      },
+      invalidatesTags: ["Room", "Property"],
+    }),
 
-            target.roomCount = (target.roomCount || 0) + 1;
-            await writeList(DbKeys.PROPERTIES, list);
+    deleteProperty: builder.mutation<boolean, string>({
+      query: (id) => ({
+        url: `/property/${id}`,
+        method: "DELETE",
+      }),
+      transformResponse: () => true,
+      invalidatesTags: ["Property"],
+    }),
 
-            // Also register the room into room inventory
-            const rooms = await readList<Room>(DbKeys.ROOMS);
-            const newRoom: Room = {
-              id: `room-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-              number: number.trim(),
-              floor: floor.trim(),
-              roomTypeId: "type-deluxe",
-              status: "AVAILABLE",
-              notes: `${roomType} at ${target.name}`,
-              propertyId: target.id,
-              propertyName: target.name,
-              basePrice: price,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            };
-            await writeList(DbKeys.ROOMS, [...rooms, newRoom]);
-
-            return target;
-          })
-        ),
-      invalidatesTags: ["Property", "Room"],
+    sendVenueAdminOtp: builder.mutation<unknown, { email: string }>({
+      query: (body) => ({
+        url: "/property/venue-admin/otp",
+        method: "POST",
+        body,
+      }),
     }),
   }),
 });
@@ -189,6 +215,9 @@ export const {
   useSwitchActivePropertyMutation,
   useCreatePropertyMutation,
   useUpdatePropertyMutation,
-  useDeletePropertyMutation,
   useAddRoomToPropertyMutation,
+  useDeletePropertyMutation,
+  useSendVenueAdminOtpMutation,
 } = propertyApi;
+
+export default propertyApi;

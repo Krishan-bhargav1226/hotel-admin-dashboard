@@ -13,10 +13,7 @@ export function ChainPortfolioKpis({ properties }: ChainPortfolioKpisProps) {
   const avgOccupancy = totalHotels > 0
     ? Math.round(properties.reduce((acc, p) => acc + (p.occupancyRate || 0), 0) / totalHotels)
     : 0;
-  const totalRevenue = properties.reduce(
-    (acc, p) => acc + (p.dailyRevenue || (p.roomCount * (p.occupancyRate / 100) * 4500) || 0),
-    0
-  );
+  const totalRevenue = properties.reduce((acc, p) => acc + (p.dailyRevenue || 0), 0);
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

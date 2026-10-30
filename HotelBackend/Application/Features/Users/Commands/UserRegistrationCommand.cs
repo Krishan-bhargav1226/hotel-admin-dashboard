@@ -1,14 +1,13 @@
-using Application.Common.Exceptions;
 using Application.Common.Mappings.Commons;
+using Application.Features.Commons;
 using Application.Interfaces.Repositories.Otps;
-using Application.Interfaces.Repositories.UserIdAndOrganizationIds;
 using Application.Interfaces.Services;
 using Application.Interfaces.UnitOfWorkRepositories;
-using AutoMapper;
 using Domain.Common.Enums.Otps;
 using Domain.Common.Enums.Users;
+using Domain.Entities.ApplicationRoles;
 using Domain.Entities.ApplicationUsers;
-using Domain.Entities.Templates;
+using Domain.Entities.Notifications;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -21,8 +20,7 @@ public class UserRegistrationCommand : IRequest<Result<string>>, ICreateMapFrom<
 {
     [Required(ErrorMessage = "FirstName is required")]
     [StringLength(50, ErrorMessage = "FirstName cannot exceed 50 characters")]
-    public string FirstName { get; set; }
-
+    public string FirstName { get; set; } = string.Empty;
     public string? LastName { get; set; }
 
     [EmailAddress]
@@ -32,122 +30,139 @@ public class UserRegistrationCommand : IRequest<Result<string>>, ICreateMapFrom<
     public string? PhoneNumber { get; set; }
 
     [Required(ErrorMessage = "Password is required")]
-    [Length(6, 30, ErrorMessage = "Password must between 6 to 30 characters")]
-    public string Password { get; set; }
+    [Length(8, 30, ErrorMessage = "Password must be 8 to 30 characters and include upper, lower, and a digit.")]
+    public string Password { get; set; } = string.Empty;
 }
 
 internal class UserRegistrationCommandHandler : IRequestHandler<UserRegistrationCommand, Result<string>>
 {
     private readonly UserManager<User> _userManager;
-    private readonly IMapper _mapper;
-    private readonly IUserIdAndOrganizationIdRepository _userIdAndOrganizationIdRepository;
+    private readonly RoleManager<Role> _roleManager;
     private readonly IOtpRepository _otpRepository;
     private readonly IEmailService _emailService;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ValidationManager _validationManager;
 
     public UserRegistrationCommandHandler(
         UserManager<User> userManager,
-        IMapper mapper,
-        IUserIdAndOrganizationIdRepository userIdAndOrganizationIdRepository,
+        RoleManager<Role> roleManager,
         IOtpRepository otpRepository,
         IEmailService emailService,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ValidationManager validationManager)
     {
         _userManager = userManager;
-        _mapper = mapper;
-        _userIdAndOrganizationIdRepository = userIdAndOrganizationIdRepository;
+        _roleManager = roleManager;
         _otpRepository = otpRepository;
         _emailService = emailService;
         _unitOfWork = unitOfWork;
+        _validationManager = validationManager;
     }
 
     public async Task<Result<string>> Handle(UserRegistrationCommand request, CancellationToken cancellationToken)
     {
-        request.Email = request.Email?.ToLower();
+        request.Email = request.Email?.Trim().ToLower();
+        request.PhoneNumber = request.PhoneNumber?.Trim();
 
-        if (request.Email == null && request.PhoneNumber == null)
+        if (string.IsNullOrWhiteSpace(request.Email))
+            return Result<string>.BadRequest("Email address is required.");
+
+        try
         {
-            return Result<string>.BadRequest("Email address or phone number is required");
+            _validationManager.ValidatePassword(request.Password);
+        }
+        catch (Exception exception)
+        {
+            return Result<string>.BadRequest(exception.Message);
         }
 
-        var userOrgInfo = await _userIdAndOrganizationIdRepository.Get();
+        if (!string.IsNullOrWhiteSpace(request.PhoneNumber) && !ValidationManager.IsValidPhoneNumber(request.PhoneNumber))
+            return Result<string>.BadRequest("Phone number must be 10 digits.");
 
-        // Check if user with this email already exists
+        var organization = await _userManager.Users
+            .Select(x => (int?)x.OrganizationId)
+            .FirstOrDefaultAsync(cancellationToken);
+        var organizationId = organization ?? 1;
 
-        if (request.Email != null)
+        var emailTaken = await _userManager.Users
+            .AnyAsync(x => x.Email != null && x.Email.ToLower() == request.Email, cancellationToken);
+        if (emailTaken)
+            return Result<string>.BadRequest("User with this email already exists.");
+
+        if (!string.IsNullOrWhiteSpace(request.PhoneNumber))
         {
-            var existingUser = await _userManager.Users
-                .AnyAsync(x => x.Email.ToLower() == request.Email && x.EmailConfirmed);
-            if (existingUser)
-            {
-                return Result<string>.BadRequest("User with this email already exists.");
-            }
+            var phoneTaken = await _userManager.Users
+                .AnyAsync(x => x.PhoneNumber == request.PhoneNumber, cancellationToken);
+            if (phoneTaken)
+                return Result<string>.BadRequest("User with this phone number already exists.");
         }
 
-        if (request.PhoneNumber != null)
-        {
-            var existingUser = await _userManager.Users
-                .AnyAsync(x => x.PhoneNumber.ToLower() == request.PhoneNumber && x.PhoneNumberConfirmed);
-            if (existingUser)
-            {
-                return Result<string>.BadRequest("User with this email already exists.");
-            }
-        }
-
-        // Create new user
         var user = new User
         {
-            UserName = Guid.NewGuid().ToString(),
+            UserName = request.Email,
             Email = request.Email,
             PhoneNumber = request.PhoneNumber,
-            FirstName = request.FirstName,
-            LastName = request.LastName,
-            OrganizationId = userOrgInfo.OrganizationId.Value,
+            FirstName = request.FirstName.Trim(),
+            LastName = request.LastName?.Trim() ?? string.Empty,
+            OrganizationId = organizationId,
             EmailConfirmed = false,
             PhoneNumberConfirmed = false,
+            IsActive = true,
+            CreatedDate = DateTime.UtcNow,
             UserType = UserType.WebUser
         };
 
         var createUserResult = await _userManager.CreateAsync(user, request.Password);
-
         if (!createUserResult.Succeeded)
         {
             var errors = string.Join(", ", createUserResult.Errors.Select(e => e.Description));
             return Result<string>.BadRequest($"Failed to create user: {errors}");
         }
 
-        // Generate and save OTP
+        if (!await _roleManager.RoleExistsAsync("User"))
+            await _roleManager.CreateAsync(new Role { Name = "User", OrganizationId = organizationId });
 
-        if (request.Email != null)
-        {
-            var otpEntity = await _otpRepository.GenerateAndAddOtpAsync(user.Id, "Registration", OtpSentOn.Email, cancellationToken);
+        var roleResult = await _userManager.AddToRoleAsync(user, "User");
+        if (!roleResult.Succeeded)
+            return Result<string>.BadRequest("The account was created but the default role could not be saved.");
 
-            // Send OTP email
-            await SendRegistrationOtpEmail(request.Email, otpEntity.Otp, request.FirstName + request.LastName ?? "");
-        }
+        var emailSent = await SendVerificationCode(user, cancellationToken);
+        await NotifySuperAdmins(user, cancellationToken);
 
-        return Result<string>.Success("User registered successfully. OTP sent to email.");
+        var message = emailSent
+            ? "Account saved. Enter the 6-digit code sent to your email. A Super Admin will assign your hotel and role after verification."
+            : "Account saved, but the verification email could not be sent. Use resend verification and ask a Super Admin to assign your hotel.";
+        return Result<string>.Success(user.Id, message);
     }
 
-    private async Task SendRegistrationOtpEmail(string email, int otp, string name)
+    private async Task<bool> SendVerificationCode(User user, CancellationToken cancellationToken)
     {
-        int templateId = 3;
-
-        var template = await _unitOfWork.Repository<Template>().Entities
-            .Include(x => x.TemplateBody)
-            .FirstOrDefaultAsync(x => x.Id == templateId);
-
-        if (template == null)
+        try
         {
-            throw new BadRequestException($"template id {templateId} doesn't exists");
+            var otp = await _otpRepository.GenerateAndAddOtpAsync(user.Id, "Register", OtpSentOn.Email, cancellationToken);
+            var name = $"{user.FirstName} {user.LastName}".Trim();
+            await _emailService.SendEmail(
+                user.Email!,
+                "Verify your hotel account",
+                $"Hello {name}, your verification code is {otp.Otp}. It expires in 5 minutes.");
+            return true;
         }
+        catch
+        {
+            return false;
+        }
+    }
 
-        string subject = template.Subject;
-
-        string emailBody = template.TemplateBody.Body
-            .Replace("{{otp}}", otp.ToString())
-            .Replace("{{username}}", name);
-
-        await _emailService.SendEmail(email, subject, emailBody);
+    private async Task NotifySuperAdmins(User user, CancellationToken cancellationToken)
+    {
+        var name = $"{user.FirstName} {user.LastName}".Trim();
+        await _unitOfWork.Repository<AdminNotification>().AddAsync(new AdminNotification
+        {
+            Title = "New user waiting for access",
+            Message = $"{name} ({user.Email}) registered. Verify status is pending until they confirm email. Assign a hotel and a role.",
+            SubjectUserId = user.Id,
+            IsRead = false
+        });
+        await _unitOfWork.Save(cancellationToken);
     }
 }

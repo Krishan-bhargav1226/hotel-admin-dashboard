@@ -34,10 +34,11 @@ public class ValidationManager
             throw new BadRequestException("Password cannot be empty.");
         }
 
-        if (password.Length < 6)
-        {
-            throw new BadRequestException("Passwords must be at least 6 characters.");
-        }
+        if (password.Length < 8 || password.Length > 30)
+            throw new BadRequestException("Password must be 8 to 30 characters.");
+
+        if (!password.Any(char.IsUpper) || !password.Any(char.IsLower) || !password.Any(char.IsDigit))
+            throw new BadRequestException("Password must include an uppercase letter, a lowercase letter, and a digit.");
     }
 
     public async Task ValidateId<T>(int? id) where T : BaseAuditableEntity
